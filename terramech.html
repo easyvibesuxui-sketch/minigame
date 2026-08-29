@@ -1,0 +1,1704 @@
+<title>TerraMech Catch &amp; Clear</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=Chakra+Petch:wght@500;600;700&display=swap">
+<style>
+/* ---------------------------------------------------------------------------
+   TerraMech — single committed visual world (industrial arcade cabinet).
+   No theme swap: every surface is painted explicitly so the page holds on
+   any host ground.
+--------------------------------------------------------------------------- */
+:root{
+  --asphalt:#1C1E21;
+  --asphalt-deep:#141619;
+  --steel:#25282C;
+  --concrete:#3B3C36;        /* warm, yellow-biased neutral */
+  --concrete-dim:#6E7066;
+  --hivis:#F4D03F;
+  --hivis-deep:#C9A722;
+  --hazard:#E0483A;
+  --coolant:#5FD3E0;
+  --paper:#E9EDF0;
+  --plate-shadow:0 2px 0 #0c0d0f, 0 18px 40px -18px rgba(0,0,0,.9);
+  --stripe:repeating-linear-gradient(-45deg,var(--hivis) 0 10px,var(--asphalt) 10px 20px);
+  --font-display:"Chakra Petch",ui-sans-serif,system-ui,sans-serif;
+  --font-label:"Barlow Condensed","Chakra Petch",ui-sans-serif,sans-serif;
+  --font-body:"Barlow",ui-sans-serif,system-ui,sans-serif;
+}
+
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  min-height:100vh;
+  background:
+    radial-gradient(120% 80% at 50% 0%, #23262b 0%, var(--asphalt-deep) 62%, #0a0b0d 100%);
+  color:var(--paper);
+  font-family:var(--font-body);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:clamp(8px,2vw,28px);
+  overflow:hidden;
+}
+
+/* --- machine housing ---------------------------------------------------- */
+.housing{
+  position:relative;
+  width:min(1180px,100%);
+  height:min(880px,calc(100vh - 2*clamp(8px,2vw,28px)));
+  display:flex;
+  flex-direction:column;
+  background:linear-gradient(180deg,#2b2e33,#1a1c20);
+  border:1px solid #43464c;
+  border-radius:6px;
+  padding:13px 10px 10px;
+  box-shadow:var(--plate-shadow);
+}
+.housing::before,
+.housing::after{
+  content:"";
+  position:absolute;
+  left:10px;right:10px;
+  height:6px;
+  background:var(--stripe);
+  opacity:.85;
+}
+.housing::before{top:0;border-radius:6px 6px 0 0}
+.housing::after{bottom:0;border-radius:0 0 6px 6px}
+
+.rig-bar{
+  flex:none;
+  display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+  padding:2px 4px 9px;
+}
+.rig-mark{
+  font-family:var(--font-display);font-weight:700;
+  font-size:15px;letter-spacing:.24em;color:#6C7076;
+}
+.rig-mark b{color:var(--hivis);font-weight:700}
+.rig-id{
+  font-family:var(--font-label);font-size:11px;letter-spacing:.22em;
+  text-transform:uppercase;color:#565A60;
+}
+
+.stage{
+  position:relative;
+  flex:1;
+  min-height:0;
+  border-radius:3px;
+  overflow:hidden;
+  background:var(--asphalt);
+  border:1px solid #000;
+  box-shadow:inset 0 0 0 1px rgba(244,208,63,.08), inset 0 0 60px rgba(0,0,0,.6);
+}
+canvas{display:block;width:100%;height:100%;touch-action:none;cursor:none}
+
+/* --- overlays ----------------------------------------------------------- */
+.overlay{
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  padding:clamp(14px,3vw,36px);
+  background:
+    linear-gradient(180deg,rgba(12,13,15,.82),rgba(12,13,15,.94));
+  backdrop-filter:blur(3px);
+  z-index:2;
+  animation:plate-in .28s cubic-bezier(.2,.9,.25,1) both;
+}
+.overlay[hidden]{display:none}
+@keyframes plate-in{from{opacity:0}to{opacity:1}}
+
+.plate{
+  width:min(660px,100%);
+  max-height:100%;
+  overflow-y:auto;
+  background:linear-gradient(180deg,#212429,#181a1e);
+  border:1px solid #3d4046;
+  border-top:3px solid var(--hivis);
+  border-radius:4px;
+  padding:clamp(20px,3.4vw,34px);
+  box-shadow:var(--plate-shadow);
+  position:relative;
+}
+.plate::after{ /* rivets */
+  content:"";position:absolute;inset:9px;border-radius:2px;
+  border:1px dashed rgba(244,208,63,.14);
+  pointer-events:none;
+}
+
+.eyebrow{
+  font-family:var(--font-label);
+  text-transform:uppercase;
+  letter-spacing:.3em;
+  font-size:12px;
+  font-weight:600;
+  color:var(--hivis);
+  margin:0 0 10px;
+}
+.eyebrow.muted{color:var(--concrete-dim)}
+
+h1{
+  font-family:var(--font-display);
+  font-weight:700;
+  font-size:clamp(38px,7.2vw,68px);
+  line-height:.92;
+  letter-spacing:-.02em;
+  margin:0 0 4px;
+  text-wrap:balance;
+}
+h1 .mech{color:var(--hivis)}
+h2{
+  font-family:var(--font-display);
+  font-weight:700;
+  font-size:clamp(26px,4.4vw,40px);
+  line-height:1;
+  margin:0 0 6px;
+  text-wrap:balance;
+}
+.lede{
+  font-size:15px;
+  line-height:1.55;
+  color:#a9adb2;
+  max-width:56ch;
+  margin:12px 0 20px;
+}
+.rule{height:4px;background:var(--stripe);opacity:.7;border-radius:2px;margin:18px 0}
+
+/* legend of pieces */
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:9px;margin:0 0 20px;padding:0;list-style:none}
+.legend li{
+  display:flex;gap:10px;align-items:center;
+  background:#1b1e22;border:1px solid #33363b;border-radius:3px;padding:9px 11px;
+}
+.legend svg{flex:none;width:30px;height:30px}
+.legend li>div{min-width:0}
+.legend b{display:block;font-family:var(--font-label);font-size:14px;letter-spacing:.06em;text-transform:uppercase;font-weight:600}
+.legend span{font-size:12.5px;color:#8d9197;line-height:1.35;display:block}
+
+.controls{
+  display:flex;flex-wrap:wrap;gap:8px 18px;
+  font-family:var(--font-label);font-size:14px;letter-spacing:.05em;
+  color:#8d9197;text-transform:uppercase;margin:0 0 22px;
+}
+.on-touch{display:none}
+@media (hover:none),(pointer:coarse){
+  .on-pointer{display:none}
+  .on-touch{display:inline}
+}
+kbd{
+  font-family:var(--font-display);font-size:12px;
+  background:#2c3036;border:1px solid #474b52;border-bottom-width:2px;
+  border-radius:3px;padding:2px 7px;color:var(--paper);margin-right:5px;
+}
+
+.btn{
+  font-family:var(--font-display);font-weight:700;
+  font-size:19px;letter-spacing:.06em;text-transform:uppercase;
+  color:#17181a;background:var(--hivis);
+  border:none;border-bottom:4px solid var(--hivis-deep);
+  border-radius:3px;padding:14px 30px;cursor:pointer;
+  transition:transform .12s ease,filter .12s ease,box-shadow .12s ease;
+}
+.btn:hover{filter:brightness(1.08);transform:translateY(-1px);box-shadow:0 8px 22px -10px var(--hivis)}
+.btn:active{transform:translateY(2px);border-bottom-width:2px}
+.btn:focus-visible{outline:3px solid var(--coolant);outline-offset:3px}
+.btn.ghost{
+  background:transparent;color:var(--paper);
+  border:1px solid #4a4e55;border-bottom-width:3px;font-size:15px;padding:11px 20px;
+}
+.btn.ghost:hover{border-color:var(--hivis);color:var(--hivis)}
+.actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+
+/* game over readout */
+.rank-badge{
+  display:flex;align-items:center;gap:16px;margin:4px 0 16px;
+}
+.rank-badge .mark{
+  flex:none;width:74px;height:74px;border-radius:3px;
+  display:grid;place-items:center;
+  background:#1b1e22;border:2px solid var(--hivis);
+  box-shadow:inset 0 0 24px rgba(244,208,63,.16);
+}
+.rank-badge .mark svg{width:44px;height:44px}
+.stats{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));
+  gap:1px;background:#33363b;border:1px solid #33363b;border-radius:3px;
+  margin:0 0 18px;overflow:hidden;
+}
+.stats div{background:#1b1e22;padding:11px 13px}
+.stats dt{
+  font-family:var(--font-label);text-transform:uppercase;letter-spacing:.16em;
+  font-size:11px;color:#82868c;margin:0 0 3px;
+}
+.stats dd{
+  margin:0;font-family:var(--font-display);font-weight:700;font-size:24px;
+  font-variant-numeric:tabular-nums;color:var(--paper);
+}
+.stats dd.hi{color:var(--hivis)}
+
+.record{
+  display:inline-block;margin:0 0 12px;padding:5px 12px;
+  font-family:var(--font-label);font-weight:700;font-size:13px;
+  letter-spacing:.2em;text-transform:uppercase;
+  color:#17181a;background:var(--hivis);border-radius:2px;
+}
+.record[hidden]{display:none}
+.ladder{list-style:none;margin:0 0 20px;padding:0;display:flex;flex-direction:column;gap:5px}
+.ladder li{
+  display:flex;align-items:baseline;gap:10px;
+  font-family:var(--font-label);font-size:15px;letter-spacing:.05em;
+  text-transform:uppercase;color:#6d7178;padding:6px 10px;border-left:3px solid #33363b;
+}
+.ladder li .req{margin-left:auto;font-variant-numeric:tabular-nums;font-size:13px}
+.ladder li.done{color:#a9adb2;border-left-color:var(--concrete-dim)}
+.ladder li.current{color:var(--hivis);border-left-color:var(--hivis);background:rgba(244,208,63,.07)}
+.next-hint{font-size:13px;color:#8d9197;margin:-8px 0 18px}
+
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+@media (max-width:560px){
+  .plate{padding:18px}
+  .legend{grid-template-columns:1fr}
+  .rig-id{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .overlay,.btn{animation:none;transition:none}
+}
+</style>
+
+<div class="housing">
+  <div class="rig-bar">
+    <span class="rig-mark">TERRA<b>MECH</b></span>
+    <span class="rig-id">TM&ndash;7 &middot; Operator Simulator</span>
+  </div>
+  <div class="stage">
+    <canvas id="game" aria-label="TerraMech Catch and Clear arcade game"></canvas>
+
+    <!-- ===================== START SCREEN ===================== -->
+    <div class="overlay" id="screen-start">
+      <div class="plate">
+        <p class="eyebrow">TerraMech Heavy Equipment &middot; Operator Trial</p>
+        <h1>CATCH &amp;<br><span class="mech">CLEAR</span></h1>
+        <p class="lede">You are on the bucket. Salvage every beam, pipe and plate the hoist drops &mdash;
+          and keep the rig clear of falling hazards. Survive into Night Shift and every load pays double.</p>
+
+        <ul class="legend">
+          <li>
+            <svg viewBox="0 0 32 32" fill="none" stroke="#F4D03F" stroke-width="2" stroke-linejoin="round"><rect x="4" y="10" width="24" height="12" rx="2"/><circle cx="10" cy="16" r="1.6" fill="#F4D03F" stroke="none"/><circle cx="22" cy="16" r="1.6" fill="#F4D03F" stroke="none"/></svg>
+            <div><b>Steel</b><span>Beams, pipes, plates. Points.</span></div>
+          </li>
+          <li>
+            <svg viewBox="0 0 32 32" fill="none" stroke="#E0483A" stroke-width="2" stroke-linejoin="round"><path d="M9 8h14l2 16H7z"/><path d="M11 13h10M10 18h12"/></svg>
+            <div><b>Hazard</b><span>Catch one, lose a life.</span></div>
+          </li>
+          <li>
+            <svg viewBox="0 0 32 32" fill="none" stroke="#5FD3E0" stroke-width="2" stroke-linecap="round"><path d="M10 24V15a6 6 0 0112 0v9"/><path d="M10 24h4v-9M22 24h-4v-9"/></svg>
+            <div><b>Magnet</b><span>Pulls steel to the bucket.</span></div>
+          </li>
+          <li>
+            <svg viewBox="0 0 32 32" fill="none" stroke="#E9EDF0" stroke-width="2" stroke-linejoin="round"><path d="M16 5l10 5v8c0 6-5 8-10 9-5-1-10-3-10-9v-8z"/><path d="M12 16l3 3 6-6"/></svg>
+            <div><b>Titanium</b><span>Smash hazards, take no damage.</span></div>
+          </li>
+        </ul>
+
+        <p class="controls">
+          <span class="on-pointer"><kbd>Mouse</kbd>steers the bucket</span>
+          <span class="on-touch">Drag anywhere to steer</span>
+          <span class="on-pointer"><kbd>&larr;</kbd><kbd>&rarr;</kbd>keys work too</span>
+          <span class="on-pointer"><kbd>P</kbd>pause</span>
+          <span class="on-pointer"><kbd>M</kbd>sound</span>
+        </p>
+
+        <div class="actions">
+          <button class="btn" id="btn-start" type="button">Start shift</button>
+          <button class="btn ghost" id="btn-sound" type="button" aria-pressed="true">Sound: on</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== GAME OVER ===================== -->
+    <div class="overlay" id="screen-over" hidden>
+      <div class="plate">
+        <p class="eyebrow muted">Shift ended &middot; Performance review</p>
+        <div class="rank-badge">
+          <div class="mark" id="rank-mark"></div>
+          <div>
+            <h2 id="rank-title">Rookie</h2>
+            <p class="eyebrow" style="margin:0" id="rank-sub">Operator grade 1</p>
+          </div>
+        </div>
+
+        <p class="record" id="record-flag" hidden>New site record</p>
+        <dl class="stats">
+          <div><dt>Score</dt><dd class="hi" id="stat-score">0</dd></div>
+          <div><dt>Best combo</dt><dd id="stat-combo">0&times;</dd></div>
+          <div><dt>Salvaged</dt><dd id="stat-caught">0</dd></div>
+          <div><dt>Shift reached</dt><dd id="stat-phase" style="font-size:17px">Morning</dd></div>
+        </dl>
+
+        <ul class="ladder" id="ladder"></ul>
+        <p class="next-hint" id="next-hint"></p>
+
+        <div class="actions">
+          <button class="btn" id="btn-again" type="button">Run it back</button>
+          <button class="btn ghost" id="btn-menu" type="button">Back to briefing</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== PAUSE ===================== -->
+    <div class="overlay" id="screen-pause" hidden>
+      <div class="plate" style="text-align:center">
+        <p class="eyebrow">Hydraulics held</p>
+        <h2>Paused</h2>
+        <div class="rule"></div>
+        <div class="actions" style="justify-content:center">
+          <button class="btn" id="btn-resume" type="button">Resume</button>
+          <button class="btn ghost" id="btn-abandon" type="button">End shift</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ===========================================================================
+   TERRAMECH — CATCH & CLEAR
+   ---------------------------------------------------------------------------
+   Architecture
+     0. Config + math helpers
+     1. Input      — pointer / touch / keyboard, normalised to one target X
+     2. Audio      — tiny WebAudio synth (no assets)
+     3. FX         — particles, shockwaves, floating text, screen shake
+     4. World      — parallax backdrop that lerps Morning -> Night
+     5. Entities   — Bucket (lerp movement), FallingItem (gravity + spin)
+     6. Game       — spawn director, difficulty phases, combos, power-ups
+     7. HUD + shell— in-canvas instrument panel, DOM screens, ranking
+   All motion is deltaTime-driven; all gameplay distances scale off a
+   720px reference height so the feel is identical at any canvas size.
+=========================================================================== */
+
+/* ---------------------------------------------------------------- 0. CONFIG */
+const CFG = {
+  REF_H: 720,             // design height; everything scales from this
+  GRAVITY: 620,           // px/s^2 at reference scale
+  BUCKET_EASE: 11,        // lerp responsiveness (higher = snappier)
+  BUCKET_W: 132,
+  BUCKET_H: 58,
+  BUCKET_Y: 0.800,        // fraction of canvas height
+  FLOOR_Y: 0.888,         // miss line / top of the deck
+  MOUTH_DEPTH: 34,
+  LIVES: 3,
+  COMBO_WINDOW: 2.4,      // seconds before a streak decays
+  COMBO_MAX_MULT: 8,
+  POWER_TIME: 5,          // seconds — both power-ups
+  MAGNET_RADIUS: 260,
+  MAGNET_PULL: 1500,
+  DUSK_CATCH: 14,         // materials salvaged before the light starts to turn
+  NIGHT_CATCH: 30,        // materials salvaged for a full Night Shift
+  DUSK_SCORE: 3000,       // ...or reach these scores, whichever lands first
+  NIGHT_SCORE: 8000,
+  SPAWN_START: 1.05,      // seconds between drops at shift start
+  SPAWN_FLOOR: 0.34,      // fastest the hoist ever drops
+};
+
+const RANKS = [
+  { name:"Rookie",         sub:"Operator grade 1", at:0,    line:"Hard hat on, hands steady." },
+  { name:"Site Foreman",   sub:"Operator grade 2", at:2500, line:"Runs a clean deck." },
+  { name:"Chief Engineer", sub:"Operator grade 3", at:7000, line:"Reads the drop before it falls." },
+  { name:"TerraMech Master", sub:"Certified legend", at:14000, line:"The bucket is an extension of the arm." },
+];
+
+const PALETTE = {
+  hivis:"#F4D03F", hivisDeep:"#C9A722", asphalt:"#1C1E21",
+  hazard:"#E0483A", coolant:"#5FD3E0", paper:"#E9EDF0",
+  concrete:"#6E7066",
+};
+
+/* Item catalogue. `value` is Morning-shift points; Night doubles it. */
+const ITEMS = {
+  beam:   { kind:"material", value:100, r:30, weight:34, color:PALETTE.hivis },
+  pipe:   { kind:"material", value:75,  r:26, weight:26, color:PALETTE.hivis },
+  plate:  { kind:"material", value:160, r:27, weight:12, color:"#FFE58A" },
+  crate:  { kind:"material", value:60,  r:28, weight:18, color:PALETTE.hivis },
+  drum:   { kind:"hazard",   value:0,   r:30, weight:0,  color:PALETTE.hazard },
+  rubble: { kind:"hazard",   value:0,   r:27, weight:0,  color:PALETTE.hazard },
+  magnet: { kind:"power",    value:0,   r:26, weight:0,  color:PALETTE.coolant, power:"magnet" },
+  titan:  { kind:"power",    value:0,   r:26, weight:0,  color:PALETTE.paper,  power:"titanium" },
+};
+
+const STREAKS = [
+  { at:4,  text:"NICE HAUL" },
+  { at:8,  text:"PERFECT!" },
+  { at:12, text:"ON FIRE" },
+  { at:16, text:"UNSTOPPABLE!" },
+  { at:22, text:"SITE LEGEND" },
+  { at:30, text:"TERRAMECH!!" },
+];
+
+/* ------------------------------------------------------------- 0b. HELPERS */
+const TAU = Math.PI * 2;
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp  = (a, b, t) => a + (b - a) * t;
+const rand  = (a, b) => a + Math.random() * (b - a);
+const randInt = (a, b) => Math.floor(rand(a, b + 1));
+const pick  = arr => arr[Math.floor(Math.random() * arr.length)];
+const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+const easeOutBack  = t => 1 + 2.7 * Math.pow(t - 1, 3) + 1.7 * Math.pow(t - 1, 2);
+/* Frame-rate independent exponential smoothing — the honest way to lerp. */
+const damp = (a, b, rate, dt) => lerp(a, b, 1 - Math.exp(-rate * dt));
+
+function mixHex(a, b, t){
+  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+  const r = Math.round(lerp((pa >> 16) & 255, (pb >> 16) & 255, t));
+  const g = Math.round(lerp((pa >> 8) & 255, (pb >> 8) & 255, t));
+  const bl = Math.round(lerp(pa & 255, pb & 255, t));
+  return `rgb(${r},${g},${bl})`;
+}
+function rrect(ctx, x, y, w, h, r){
+  r = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function poly(ctx, pts){
+  ctx.beginPath();
+  pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]));
+  ctx.closePath();
+}
+const store = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* private mode */ } },
+};
+const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ----------------------------------------------------------------- 1. INPUT */
+const Input = {
+  x: null, active: false, keyLeft: false, keyRight: false,
+  attach(canvas, game){
+    const toLocal = e => {
+      const r = canvas.getBoundingClientRect();
+      return (e.clientX - r.left) * (canvas.width / (r.width * game.dpr));
+    };
+    const move = e => { Input.x = toLocal(e); Input.active = true; };
+    canvas.addEventListener("pointermove", move);
+    canvas.addEventListener("pointerdown", e => { canvas.setPointerCapture?.(e.pointerId); move(e); });
+    canvas.addEventListener("pointerleave", () => { Input.active = false; });
+    window.addEventListener("keydown", e => {
+      if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") { Input.keyLeft = true; Input.active = false; }
+      if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") { Input.keyRight = true; Input.active = false; }
+      if (e.key === "p" || e.key === "P") game.togglePause();
+      if (e.key === "m" || e.key === "M") Shell.toggleSound();
+      if (e.code === "Space" || e.key === "Enter") {
+        if (game.state === "menu") { e.preventDefault(); Shell.start(); }
+        else if (game.state === "over") { e.preventDefault(); Shell.start(); }
+      }
+    });
+    window.addEventListener("keyup", e => {
+      if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") Input.keyLeft = false;
+      if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") Input.keyRight = false;
+    });
+  },
+};
+
+/* ----------------------------------------------------------------- 2. AUDIO */
+/* Six-oscillator toy synth. Built lazily on the first gesture so no autoplay
+   policy is ever tripped, and every voice is short enough to stay punchy. */
+const Audio_ = {
+  ctx:null, on: store.get("tm_sound", true), master:null,
+  init(){
+    if (this.ctx || typeof AudioContext === "undefined") return;
+    this.ctx = new AudioContext();
+    this.master = this.ctx.createGain();
+    this.master.gain.value = 0.24;
+    this.master.connect(this.ctx.destination);
+  },
+  blip(freq, dur = 0.09, type = "square", vol = 0.5, slide = 0){
+    if (!this.on || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, freq + slide), t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(this.master); o.start(t); o.stop(t + dur + 0.02);
+  },
+  noise(dur = 0.3, vol = 0.5){
+    if (!this.on || !this.ctx) return;
+    const t = this.ctx.currentTime, n = Math.floor(this.ctx.sampleRate * dur);
+    const buf = this.ctx.createBuffer(1, n, this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const s = this.ctx.createBufferSource(); s.buffer = buf;
+    const f = this.ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 900;
+    const g = this.ctx.createGain(); g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f); f.connect(g); g.connect(this.master); s.start(t);
+  },
+  catch_(combo){ this.blip(300 + Math.min(combo, 16) * 42, 0.08, "square", 0.34, 120); },
+  bonus(){ [0, 90, 180].forEach((d, i) => setTimeout(() => this.blip(520 + i * 220, 0.1, "triangle", 0.3), d)); },
+  hit(){ this.noise(0.38, 0.7); this.blip(90, 0.28, "sawtooth", 0.4, -50); },
+  smash(){ this.noise(0.2, 0.4); this.blip(180, 0.14, "square", 0.3, 260); },
+  miss(){ this.blip(190, 0.1, "sine", 0.18, -70); },
+  phase(){ [0, 130, 260, 400].forEach((d, i) => setTimeout(() => this.blip(220 * Math.pow(1.26, i), 0.24, "triangle", 0.26), d)); },
+  over(){ [0, 160, 320].forEach((d, i) => setTimeout(() => this.blip(300 - i * 70, 0.34, "sawtooth", 0.3, -60), d)); },
+};
+
+/* -------------------------------------------------------------------- 3. FX */
+class Particles {
+  constructor(){ this.list = []; }
+  clear(){ this.list.length = 0; }
+  /* Directional sparks: short bright streaks that inherit velocity. */
+  sparks(x, y, count, color, spread = TAU, dir = -Math.PI / 2, speed = 260){
+    if (REDUCED) count = Math.ceil(count / 2);
+    for (let i = 0; i < count; i++){
+      const a = dir + rand(-spread / 2, spread / 2), s = rand(0.35, 1) * speed;
+      this.list.push({ t:"spark", x, y, vx:Math.cos(a) * s, vy:Math.sin(a) * s,
+        life:rand(0.28, 0.62), age:0, color, w:rand(1.2, 2.6) });
+    }
+  }
+  /* Chunky debris with spin — used for hazard blasts. */
+  debris(x, y, count, color){
+    if (REDUCED) count = Math.ceil(count / 2);
+    for (let i = 0; i < count; i++){
+      const a = rand(0, TAU), s = rand(60, 380);
+      this.list.push({ t:"debris", x, y, vx:Math.cos(a) * s, vy:Math.sin(a) * s - 60,
+        life:rand(0.4, 0.9), age:0, color, size:rand(3, 8), rot:rand(0, TAU), spin:rand(-9, 9) });
+    }
+  }
+  ring(x, y, color, max = 90, width = 3){
+    this.list.push({ t:"ring", x, y, life:0.42, age:0, color, max, width });
+  }
+  dust(x, y, color){
+    for (let i = 0; i < (REDUCED ? 3 : 7); i++){
+      this.list.push({ t:"dust", x:x + rand(-14, 14), y, vx:rand(-70, 70), vy:rand(-90, -20),
+        life:rand(0.4, 0.8), age:0, color, size:rand(4, 12) });
+    }
+  }
+  update(dt, g){
+    for (let i = this.list.length - 1; i >= 0; i--){
+      const p = this.list[i];
+      p.age += dt;
+      if (p.age >= p.life){ this.list.splice(i, 1); continue; }
+      if (p.t === "spark" || p.t === "debris"){
+        p.vy += g * dt * (p.t === "debris" ? 1.4 : 0.75);
+        p.x += p.vx * dt; p.y += p.vy * dt;
+        p.vx *= Math.pow(0.22, dt);
+        if (p.t === "debris") p.rot += p.spin * dt;
+      } else if (p.t === "dust"){
+        p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 40 * dt; p.vx *= Math.pow(0.4, dt);
+      }
+    }
+  }
+  draw(ctx){
+    for (const p of this.list){
+      const k = 1 - p.age / p.life;
+      ctx.globalAlpha = k;
+      if (p.t === "spark"){
+        ctx.strokeStyle = p.color; ctx.lineWidth = p.w; ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(p.x - p.vx * 0.024, p.y - p.vy * 0.024);
+        ctx.stroke();
+      } else if (p.t === "debris"){
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+        ctx.strokeStyle = p.color; ctx.lineWidth = 2;
+        ctx.strokeRect(-p.size / 2, -p.size / 2, p.size, p.size);
+        ctx.restore();
+      } else if (p.t === "ring"){
+        const e = easeOutCubic(p.age / p.life);
+        ctx.strokeStyle = p.color; ctx.lineWidth = p.width * (1 - e) + 0.6;
+        ctx.globalAlpha = k * 0.85;
+        ctx.beginPath(); ctx.arc(p.x, p.y, e * p.max, 0, TAU); ctx.stroke();
+      } else if (p.t === "dust"){
+        ctx.globalAlpha = k * 0.35;
+        ctx.fillStyle = p.color;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (1 + (1 - k)), 0, TAU); ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+
+class Popups {
+  constructor(){ this.list = []; }
+  clear(){ this.list.length = 0; }
+  add(x, y, text, color, size = 22, weight = 700){
+    this.list.push({ x: x + rand(-10, 10), y: y + rand(-10, 10), text, color, size, weight,
+      life:1.05, age:0, drift:rand(-16, 16) });
+  }
+  update(dt){
+    for (let i = this.list.length - 1; i >= 0; i--){
+      const p = this.list[i];
+      p.age += dt;
+      if (p.age >= p.life) this.list.splice(i, 1);
+    }
+  }
+  draw(ctx){
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    for (const p of this.list){
+      const t = p.age / p.life;
+      const pop = t < 0.22 ? easeOutBack(t / 0.22) : 1;
+      const rise = easeOutCubic(Math.min(1, t * 1.4)) * 54;
+      ctx.save();
+      ctx.globalAlpha = t > 0.65 ? 1 - (t - 0.65) / 0.35 : 1;
+      ctx.translate(p.x + p.drift * t, p.y - rise);
+      ctx.scale(pop, pop);
+      ctx.font = `${p.weight} ${p.size}px "Chakra Petch", ui-sans-serif, sans-serif`;
+      ctx.lineWidth = 5; ctx.lineJoin = "round";
+      ctx.strokeStyle = "rgba(12,13,15,.85)";
+      ctx.strokeText(p.text, 0, 0);
+      ctx.fillStyle = p.color;
+      ctx.fillText(p.text, 0, 0);
+      ctx.restore();
+    }
+  }
+}
+
+class Shake {
+  constructor(){ this.mag = 0; this.x = 0; this.y = 0; this.rot = 0; }
+  kick(m){ this.mag = Math.min(28, this.mag + (REDUCED ? m * 0.25 : m)); }
+  update(dt){
+    this.mag = damp(this.mag, 0, 7.5, dt);
+    if (this.mag < 0.05){ this.mag = this.x = this.y = this.rot = 0; return; }
+    this.x = rand(-1, 1) * this.mag;
+    this.y = rand(-1, 1) * this.mag;
+    this.rot = rand(-1, 1) * this.mag * 0.0012;
+  }
+}
+
+/* ------------------------------------------------------- 4. PARALLAX WORLD */
+/* Three vector-outline layers drift at different rates; every colour is a
+   lerp between the Morning and Night palettes driven by `night` (0..1). */
+class Backdrop {
+  constructor(){
+    this.scroll = [0, 0, 0];
+    this.rate = [7, 17, 34];       // px/s at reference scale
+    this.stars = Array.from({ length: 70 }, () => ({
+      x: Math.random(), y: Math.random() * 0.55, r: rand(0.6, 1.7), tw: rand(0, TAU),
+    }));
+    this.cranes = Array.from({ length: 5 }, (_, i) => ({
+      x: i * 0.27 + rand(-0.04, 0.04), h: rand(0.34, 0.62), arm: rand(0.14, 0.24), flip: Math.random() < 0.5,
+    }));
+    this.t = 0;
+  }
+  update(dt, s){
+    this.t += dt;
+    for (let i = 0; i < 3; i++) this.scroll[i] = (this.scroll[i] + this.rate[i] * s * dt) % 100000;
+  }
+  draw(ctx, W, H, night, s){
+    const deckY = H * CFG.FLOOR_Y;
+
+    /* --- sky: hazy warm dawn -> deep industrial night ------------------- */
+    const sky = ctx.createLinearGradient(0, 0, 0, deckY);
+    sky.addColorStop(0,    mixHex("#4C6F91", "#070B14", night));
+    sky.addColorStop(0.42, mixHex("#8FA3AD", "#0D1421", night));
+    sky.addColorStop(0.78, mixHex("#C6B48C", "#131B29", night));
+    sky.addColorStop(1,    mixHex("#E0C892", "#161E2C", night));
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H);
+
+    /* --- sun / moon ------------------------------------------------------ */
+    const bodyX = W * (0.16 + night * 0.68);
+    const bodyY = H * (0.30 - Math.sin(night * Math.PI) * 0.10);
+    const bodyR = H * 0.038;
+    const glow = ctx.createRadialGradient(bodyX, bodyY, 0, bodyX, bodyY, H * 0.5);
+    glow.addColorStop(0, night < 0.5
+      ? `rgba(255,214,120,${0.34 * (1 - night * 1.5)})`
+      : `rgba(150,190,235,${0.13 * night})`);
+    glow.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = mixHex("#FFE9A8", "#C6D3E4", night);
+    ctx.beginPath(); ctx.arc(bodyX, bodyY, bodyR, 0, TAU); ctx.fill();
+    /* a bite out of the disc turns the sun into a moon as the shift turns */
+    if (night > 0.35){
+      ctx.globalAlpha = (night - 0.35) / 0.65;
+      ctx.fillStyle = mixHex("#8FA3AD", "#0A0F1A", night);
+      ctx.beginPath(); ctx.arc(bodyX + bodyR * 0.52, bodyY - bodyR * 0.3, bodyR * 0.92, 0, TAU); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    /* --- stars (night only) --------------------------------------------- */
+    if (night > 0.15){
+      ctx.fillStyle = "#DCE6F2";
+      for (const st of this.stars){
+        ctx.globalAlpha = (night - 0.15) * (0.45 + 0.55 * Math.abs(Math.sin(this.t * 1.4 + st.tw)));
+        ctx.beginPath(); ctx.arc(st.x * W, st.y * H, st.r, 0, TAU); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.lineJoin = "round"; ctx.lineCap = "round";
+
+    /* --- layer 1: distant tower cranes ----------------------------------- */
+    ctx.strokeStyle = mixHex("#3F5163", "#243046", night);
+    ctx.lineWidth = 2 * s; ctx.globalAlpha = 0.5;
+    const span1 = W * 1.4, off1 = -(this.scroll[0] * s) % span1;
+    for (let rep = -1; rep <= 1; rep++){
+      for (const c of this.cranes){
+        const x = off1 + rep * span1 + c.x * span1;
+        if (x < -W * 0.35 || x > W * 1.35) continue;
+        this.crane(ctx, x, deckY * 0.94, H * c.h, W * c.arm, c.flip, s);
+      }
+    }
+
+    /* --- layer 2: girder lattice / scaffold ------------------------------- */
+    ctx.globalAlpha = 0.4; ctx.lineWidth = 2.2 * s;
+    ctx.strokeStyle = mixHex("#4A5245", "#2C3A52", night);
+    const cell = 110 * s, off2 = -(this.scroll[1] * s) % (cell * 2);
+    const topY = H * 0.545, botY = H * 0.665;
+    ctx.beginPath();
+    ctx.moveTo(0, topY); ctx.lineTo(W, topY);
+    ctx.moveTo(0, botY); ctx.lineTo(W, botY);
+    for (let x = off2 - cell * 2; x < W + cell * 2; x += cell){
+      ctx.moveTo(x, topY); ctx.lineTo(x, botY);
+      ctx.moveTo(x, botY); ctx.lineTo(x + cell, topY);
+    }
+    ctx.stroke();
+
+    /* --- layer 3: near skyline + work lights ------------------------------ */
+    ctx.globalAlpha = 1;
+    const nearFill = mixHex("#3C4038", "#0B1018", night);
+    const nearLine = mixHex("#575C4E", "#1D2838", night);
+    const bw = 150 * s, off3 = -(this.scroll[2] * s) % (bw * 3);
+    const hs = clamp(W / 1000, 0.55, 1);
+    ctx.lineWidth = 2 * s;
+    for (let i = -2; i < W / bw + 2; i++){
+      const x = off3 + i * bw;
+      const mod3 = ((i % 3) + 3) % 3, mod5 = ((i % 5) + 5) % 5;
+      const h = (48 + mod3 * 34 + mod5 * 11) * s * hs;
+      const top = deckY - h;
+      ctx.fillStyle = nearFill; ctx.strokeStyle = nearLine;
+      ctx.beginPath(); ctx.rect(x, top, bw - 16 * s, h);
+      ctx.fill(); ctx.stroke();
+      /* rooftop plant: vent box, mast, and a red aircraft light at night */
+      ctx.beginPath();
+      ctx.rect(x + 16 * s, top - 13 * s, 34 * s, 13 * s);
+      ctx.fill(); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x + bw - 44 * s, top); ctx.lineTo(x + bw - 44 * s, top - (18 + mod3 * 9) * s);
+      ctx.stroke();
+      if (mod5 === 2){
+        ctx.fillStyle = `rgba(224,72,58,${0.35 + 0.5 * Math.abs(Math.sin(this.t * 2.2 + i))})`;
+        ctx.beginPath(); ctx.arc(x + bw - 44 * s, top - (18 + mod3 * 9) * s, 2.6 * s, 0, TAU); ctx.fill();
+      }
+      if (night > 0.22){
+        ctx.fillStyle = `rgba(244,208,63,${0.12 + night * 0.45})`;
+        for (let wy = top + 18 * s; wy < deckY - 20 * s; wy += 28 * s){
+          for (let wx = x + 15 * s; wx < x + bw - 34 * s; wx += 31 * s){
+            if (((wx + wy) | 0) % 7 < 3) ctx.fillRect(wx, wy, 11 * s, 13 * s);
+          }
+        }
+      }
+    }
+
+    /* --- deck: the operator's ground plane -------------------------------- */
+    ctx.fillStyle = mixHex("#26281F", "#080B11", night);
+    ctx.fillRect(0, deckY, W, H - deckY);
+    /* tread chevrons scrolling with the near layer keep the deck alive */
+    ctx.strokeStyle = mixHex("#F4D03F", "#7A6720", 0.35 + night * 0.45);
+    ctx.globalAlpha = 0.1; ctx.lineWidth = 2 * s;
+    const cs = 34 * s, coff = -(this.scroll[2] * s * 1.6) % (cs * 2);
+    const cTop = deckY + (H - deckY) * 0.42, cBot = deckY + (H - deckY) * 0.86;
+    ctx.beginPath();
+    for (let x = coff - cs * 2; x < W + cs * 2; x += cs * 1.8){
+      ctx.moveTo(x, cBot);
+      ctx.lineTo(x + cs * 0.5, cTop);
+      ctx.lineTo(x + cs, cBot);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    /* night floodlight cones sweeping the deck */
+    if (night > 0.2){
+      for (let i = 0; i < 2; i++){
+        const cx = W * (0.22 + i * 0.56) + Math.sin(this.t * 0.35 + i * 2) * W * 0.08;
+        const gl = ctx.createRadialGradient(cx, H * 0.42, 0, cx, H * 0.42, H * 0.5);
+        gl.addColorStop(0, `rgba(244,208,63,${0.075 * night})`);
+        gl.addColorStop(1, "rgba(244,208,63,0)");
+        ctx.fillStyle = gl; ctx.fillRect(0, 0, W, H);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+  crane(ctx, x, baseY, h, arm, flip, s){
+    const d = flip ? -1 : 1;
+    ctx.beginPath();
+    ctx.moveTo(x, baseY); ctx.lineTo(x, baseY - h);
+    for (let y = baseY; y > baseY - h; y -= 26 * s){
+      ctx.moveTo(x - 7 * s, y); ctx.lineTo(x + 7 * s, y - 13 * s);
+      ctx.moveTo(x + 7 * s, y); ctx.lineTo(x - 7 * s, y - 13 * s);
+      ctx.moveTo(x - 7 * s, y); ctx.lineTo(x - 7 * s, y - 26 * s);
+      ctx.moveTo(x + 7 * s, y); ctx.lineTo(x + 7 * s, y - 26 * s);
+    }
+    const ty = baseY - h;
+    ctx.moveTo(x - arm * 0.35 * d, ty); ctx.lineTo(x + arm * d, ty);
+    ctx.moveTo(x, ty - 26 * s); ctx.lineTo(x + arm * 0.7 * d, ty);
+    ctx.moveTo(x, ty - 26 * s); ctx.lineTo(x - arm * 0.3 * d, ty);
+    ctx.moveTo(x, ty); ctx.lineTo(x, ty - 26 * s);
+    ctx.moveTo(x + arm * 0.72 * d, ty); ctx.lineTo(x + arm * 0.72 * d, ty + 34 * s);
+    ctx.stroke();
+  }
+}
+
+/* --------------------------------------------------------------- 5. BUCKET */
+/* Momentum model: the pointer sets a target, the bucket accelerates toward it
+   with exponential damping, and the residual velocity drives both the tilt
+   and the drag streaks — so the rig always feels like it has mass. */
+class Bucket {
+  constructor(){ this.x = 0; this.vx = 0; this.target = 0; this.tilt = 0; this.squash = 0; this.flash = 0; }
+  reset(W, H, s){
+    this.x = this.target = W / 2;
+    this.vx = this.tilt = this.squash = this.flash = 0;
+    this.w = Math.min(CFG.BUCKET_W * s, W * 0.28);
+    this.h = CFG.BUCKET_H * s;
+    this.y = H * CFG.BUCKET_Y;
+  }
+  update(dt, W, H, s, game){
+    this.w = Math.min(CFG.BUCKET_W * s, W * 0.28) * (game.power.titanium > 0 ? 1.1 : 1);
+    this.h = CFG.BUCKET_H * s;
+    this.y = H * CFG.BUCKET_Y;
+
+    if (Input.active && Input.x !== null) this.target = Input.x;
+    const kb = (Input.keyRight ? 1 : 0) - (Input.keyLeft ? 1 : 0);
+    if (kb) this.target += kb * 860 * s * dt;
+    this.target = clamp(this.target, this.w / 2, W - this.w / 2);
+
+    const prev = this.x;
+    this.x = damp(this.x, this.target, CFG.BUCKET_EASE, dt);
+    this.x = clamp(this.x, this.w / 2, W - this.w / 2);
+    this.vx = dt > 0 ? (this.x - prev) / dt : 0;
+
+    this.tilt = damp(this.tilt, clamp(this.vx * 0.00042, -0.32, 0.32), 9, dt);
+    this.squash = damp(this.squash, 0, 9, dt);
+    this.flash = Math.max(0, this.flash - dt * 3);
+  }
+  /* Catch band: a shallow mouth just inside the rim, checked against the
+     item's circle so grazes along the lip still register. */
+  mouth(s){
+    const inset = this.w * 0.07;
+    return { x0: this.x - this.w / 2 + inset, x1: this.x + this.w / 2 - inset,
+             y0: this.y - this.h * 0.5, y1: this.y - this.h * 0.5 + CFG.MOUTH_DEPTH * s };
+  }
+  pop(amount){ this.squash = amount; this.flash = 1; }
+  draw(ctx, s, game, time){
+    const { x, y, w, h } = this;
+    const sq = 1 + this.squash * 0.16, sqx = 1 - this.squash * 0.10;
+    const titan = game.power.titanium > 0, magnet = game.power.magnet > 0;
+
+    /* drag streaks — momentum made visible */
+    const sp = Math.abs(this.vx);
+    if (sp > 120 && !REDUCED){
+      ctx.globalAlpha = Math.min(0.3, sp / 3000);
+      ctx.strokeStyle = PALETTE.hivis; ctx.lineWidth = 2 * s; ctx.lineCap = "round";
+      for (let i = 1; i <= 3; i++){
+        const ox = -Math.sign(this.vx) * i * 15 * s;
+        ctx.beginPath();
+        ctx.moveTo(x + ox - w * 0.34, y - h * 0.34);
+        ctx.lineTo(x + ox - w * 0.34, y + h * 0.20);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(this.tilt);
+    ctx.scale(sqx, sq);
+
+    /* hydraulic arm stub reaching off the top of the rig */
+    ctx.strokeStyle = mixHex("#6E7066", "#F4D03F", this.flash * 0.6);
+    ctx.lineWidth = 5 * s; ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(-w * 0.12, -h * 0.42); ctx.lineTo(-w * 0.02, -h * 1.35);
+    ctx.moveTo(w * 0.12, -h * 0.42);  ctx.lineTo(w * 0.02, -h * 1.35);
+    ctx.stroke();
+
+    /* the scoop: open trapezoid with a rounded heel, cut teeth on the rim */
+    const hw = w / 2, hh = h / 2;
+    const body = [[-hw, -hh], [hw, -hh], [hw * 0.74, hh * 0.72], [-hw * 0.74, hh * 0.72]];
+    ctx.beginPath();
+    ctx.moveTo(body[0][0], body[0][1]);
+    ctx.lineTo(body[1][0], body[1][1]);
+    ctx.lineTo(body[2][0], body[2][1]);
+    ctx.quadraticCurveTo(0, hh * 1.32, body[3][0], body[3][1]);
+    ctx.closePath();
+
+    const fill = ctx.createLinearGradient(0, -hh, 0, hh);
+    fill.addColorStop(0, "rgba(28,30,33,.35)");
+    fill.addColorStop(1, titan ? "rgba(95,211,224,.30)" : "rgba(244,208,63,.16)");
+    ctx.fillStyle = fill; ctx.fill();
+
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 3.4 * s;
+    ctx.strokeStyle = titan
+      ? mixHex(PALETTE.coolant, PALETTE.paper, 0.5 + Math.sin(time * 12) * 0.4)
+      : mixHex(PALETTE.hivis, PALETTE.paper, this.flash * 0.7);
+    if (!REDUCED){ ctx.shadowColor = titan ? PALETTE.coolant : PALETTE.hivis; ctx.shadowBlur = 14 * s * (0.4 + this.flash); }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    /* rim teeth */
+    ctx.lineWidth = 2.6 * s;
+    ctx.beginPath();
+    for (let i = -2; i <= 2; i++){
+      const tx = i * (w * 0.19);
+      ctx.moveTo(tx - 5 * s, -hh);
+      ctx.lineTo(tx, -hh - 9 * s);
+      ctx.lineTo(tx + 5 * s, -hh);
+    }
+    ctx.stroke();
+
+    /* wear ribs */
+    ctx.globalAlpha = 0.45; ctx.lineWidth = 2 * s;
+    ctx.beginPath();
+    ctx.moveTo(-hw * 0.45, -hh * 0.2); ctx.lineTo(-hw * 0.36, hh * 0.85);
+    ctx.moveTo(hw * 0.45, -hh * 0.2);  ctx.lineTo(hw * 0.36, hh * 0.85);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
+    /* power-up auras drawn unrotated so they read as fields, not parts */
+    if (magnet){
+      const pulse = 0.6 + 0.4 * Math.sin(time * 6);
+      ctx.strokeStyle = PALETTE.coolant;
+      ctx.globalAlpha = 0.16 + 0.14 * pulse;
+      ctx.lineWidth = 2 * s;
+      for (let i = 0; i < 3; i++){
+        ctx.beginPath();
+        ctx.arc(x, y - h * 0.2, (CFG.MAGNET_RADIUS * s) * (0.42 + i * 0.28) * (0.94 + 0.06 * pulse), Math.PI * 1.08, Math.PI * 1.92);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+    if (titan){
+      ctx.strokeStyle = PALETTE.coolant;
+      ctx.globalAlpha = 0.4 + 0.25 * Math.sin(time * 9);
+      ctx.lineWidth = 2 * s;
+      poly(ctx, [[x, y - h * 1.05], [x + w * 0.62, y - h * 0.3], [x + w * 0.62, y + h * 0.5],
+                 [x, y + h * 1.0], [x - w * 0.62, y + h * 0.5], [x - w * 0.62, y - h * 0.3]]);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+
+/* --------------------------------------------------------- 5b. FALLING ITEM */
+class FallingItem {
+  constructor(type, x, y, s, speedMul){
+    const def = ITEMS[type];
+    this.type = type; this.def = def; this.kind = def.kind;
+    this.x = x; this.y = y;
+    this.vx = rand(-40, 40) * s;
+    this.vy = rand(40, 110) * s * speedMul;
+    this.r = def.r * s;
+    this.rot = rand(0, TAU);
+    this.spin = rand(-2.4, 2.4) * (def.kind === "power" ? 0.35 : 1);
+    this.speedMul = speedMul;
+    this.dead = false; this.caught = false;
+    this.wobble = rand(0, TAU);
+    this.trail = [];
+  }
+  update(dt, s, game){
+    const grav = CFG.GRAVITY * s * this.speedMul;
+    this.vy += grav * dt;
+
+    /* Magnetic Field: steers materials toward the bucket mouth with a
+       distance-weighted pull, then lets gravity finish the job. */
+    if (game.power.magnet > 0 && this.kind === "material"){
+      const bx = game.bucket.x, by = game.bucket.y - game.bucket.h * 0.4;
+      const dx = bx - this.x, dy = by - this.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const R = CFG.MAGNET_RADIUS * s;
+      if (d < R && dy > -this.r){
+        const pull = CFG.MAGNET_PULL * s * (1 - d / R);
+        this.vx += (dx / d) * pull * dt;
+        this.vy += (dy / d) * pull * dt * 0.55;
+        this.spin += dt * 2;
+        if (Math.random() < 12 * dt) game.fx.sparks(this.x, this.y, 1, PALETTE.coolant, 0.6, Math.atan2(dy, dx), 90);
+      }
+    }
+    this.vx *= Math.pow(0.6, dt);
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+    this.rot += this.spin * dt;
+    this.wobble += dt * 4;
+
+    if (this.kind === "power" && !REDUCED){
+      this.trail.push({ x:this.x, y:this.y, a:1 });
+      if (this.trail.length > 9) this.trail.shift();
+      for (const t of this.trail) t.a -= dt * 2.6;
+    }
+  }
+  draw(ctx, s, night, time){
+    /* power-ups leave a comet trail so they read as "special" instantly */
+    if (this.trail.length){
+      ctx.strokeStyle = this.def.color; ctx.lineWidth = 2 * s;
+      for (const t of this.trail){
+        if (t.a <= 0) continue;
+        ctx.globalAlpha = t.a * 0.35;
+        ctx.beginPath(); ctx.arc(t.x, t.y, this.r * 0.5 * t.a, 0, TAU); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rot);
+    const r = this.r;
+    ctx.lineJoin = "round"; ctx.lineCap = "round";
+    ctx.lineWidth = 2.8 * s;
+
+    const glow = this.kind === "power" ? 18 : this.kind === "hazard" ? 10 : 8;
+    const isNightBoost = night > 0.5 && this.kind === "material";
+    ctx.strokeStyle = this.def.color;
+    ctx.fillStyle = this.kind === "hazard" ? "rgba(224,72,58,.12)"
+                  : this.kind === "power" ? "rgba(95,211,224,.14)"
+                  : `rgba(244,208,63,${0.08 + (isNightBoost ? 0.06 : 0)})`;
+    if (!REDUCED){
+      ctx.shadowColor = this.def.color;
+      ctx.shadowBlur = glow * s * (this.kind === "power" ? (0.7 + 0.5 * Math.sin(time * 8)) : 1);
+    }
+    SHAPES[this.type](ctx, r, s, time);
+    ctx.restore();
+    ctx.shadowBlur = 0;
+  }
+}
+
+/* Every piece is a minimal vector outline — the same language as the bucket,
+   drawn from primitives so it stays crisp at any scale. */
+const SHAPES = {
+  beam(ctx, r){
+    rrect(ctx, -r, -r * 0.46, r * 2, r * 0.92, r * 0.16);
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.62, -r * 0.46); ctx.lineTo(-r * 0.2, r * 0.46);
+    ctx.moveTo(r * 0.2, -r * 0.46);   ctx.lineTo(r * 0.62, r * 0.46);
+    ctx.stroke();
+  },
+  pipe(ctx, r){
+    ctx.beginPath(); ctx.arc(0, 0, r * 0.92, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, r * 0.46, 0, TAU); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.92, 0); ctx.lineTo(-r * 0.46, 0);
+    ctx.moveTo(r * 0.46, 0);  ctx.lineTo(r * 0.92, 0);
+    ctx.stroke();
+  },
+  plate(ctx, r){
+    const hex = i => [Math.cos(i * TAU / 6) * r, Math.sin(i * TAU / 6) * r];
+    poly(ctx, [0, 1, 2, 3, 4, 5].map(hex)); ctx.fill(); ctx.stroke();
+    poly(ctx, [0, 1, 2, 3, 4, 5].map(i => { const p = hex(i); return [p[0] * 0.5, p[1] * 0.5]; }));
+    ctx.stroke();
+  },
+  crate(ctx, r){
+    rrect(ctx, -r * 0.82, -r * 0.82, r * 1.64, r * 1.64, r * 0.18);
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.82, -r * 0.82); ctx.lineTo(r * 0.82, r * 0.82);
+    ctx.moveTo(r * 0.82, -r * 0.82);  ctx.lineTo(-r * 0.82, r * 0.82);
+    ctx.stroke();
+  },
+  drum(ctx, r){
+    poly(ctx, [[-r * 0.62, -r * 0.9], [r * 0.62, -r * 0.9], [r * 0.82, r * 0.9], [-r * 0.82, r * 0.9]]);
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.68, -r * 0.2); ctx.lineTo(r * 0.68, -r * 0.2);
+    ctx.moveTo(-r * 0.75, r * 0.35); ctx.lineTo(r * 0.75, r * 0.35);
+    ctx.stroke();
+    ctx.lineWidth *= 0.8;
+    ctx.beginPath();
+    for (let i = -1; i <= 1; i++){
+      ctx.moveTo(i * r * 0.42 - r * 0.16, r * 0.35);
+      ctx.lineTo(i * r * 0.42 + r * 0.16, -r * 0.2);
+    }
+    ctx.stroke();
+  },
+  rubble(ctx, r){
+    poly(ctx, [[-r, -r * 0.2], [-r * 0.45, -r * 0.95], [r * 0.4, -r * 0.8],
+               [r, r * 0.1], [r * 0.4, r * 0.92], [-r * 0.55, r * 0.8]]);
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.45, -r * 0.95); ctx.lineTo(-r * 0.1, r * 0.1); ctx.lineTo(r, r * 0.1);
+    ctx.moveTo(-r * 0.1, r * 0.1); ctx.lineTo(-r * 0.55, r * 0.8);
+    ctx.stroke();
+  },
+  magnet(ctx, r, s, time){
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
+    ctx.beginPath();
+    ctx.arc(0, r * 0.12, r * 0.62, Math.PI, 0);
+    ctx.lineTo(r * 0.62, r * 0.62); ctx.lineTo(r * 0.24, r * 0.62);
+    ctx.lineTo(r * 0.24, r * 0.12);
+    ctx.arc(0, r * 0.12, r * 0.24, 0, Math.PI, true);
+    ctx.lineTo(-r * 0.24, r * 0.62); ctx.lineTo(-r * 0.62, r * 0.62);
+    ctx.closePath(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, r * (0.86 + 0.1 * Math.sin(time * 7)), 0, TAU);
+    ctx.globalAlpha = 0.45; ctx.stroke(); ctx.globalAlpha = 1;
+  },
+  titan(ctx, r, s, time){
+    poly(ctx, [[0, -r], [r * 0.88, -r * 0.5], [r * 0.88, r * 0.42],
+               [0, r], [-r * 0.88, r * 0.42], [-r * 0.88, -r * 0.5]]);
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.4, 0); ctx.lineTo(-r * 0.1, r * 0.34); ctx.lineTo(r * 0.44, -r * 0.32);
+    ctx.stroke();
+    ctx.globalAlpha = 0.4 + 0.3 * Math.sin(time * 7);
+    ctx.beginPath(); ctx.arc(0, 0, r * 1.16, 0, TAU); ctx.stroke();
+    ctx.globalAlpha = 1;
+  },
+};
+
+/* ----------------------------------------------------------------- 6. GAME */
+class Game {
+  constructor(canvas){
+    this.canvas = canvas;
+    this.ctx = canvas.getContext("2d");
+    this.dpr = 1;
+    this.state = "menu";          // menu | playing | paused | over
+    this.bg = new Backdrop();
+    this.bucket = new Bucket();
+    this.fx = new Particles();
+    this.popups = new Popups();
+    this.shake = new Shake();
+    this.items = [];
+    this.time = 0;
+    this.best = store.get("tm_best", 0);
+    this.resize();
+    window.addEventListener("resize", () => this.resize());
+    this.reset();
+  }
+
+  /* ---------------------------------------------------------- dimensions */
+  resize(){
+    const rect = this.canvas.getBoundingClientRect();
+    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    this.canvas.width  = Math.max(1, Math.round(rect.width  * this.dpr));
+    this.canvas.height = Math.max(1, Math.round(rect.height * this.dpr));
+    this.W = this.canvas.width / this.dpr;
+    this.H = this.canvas.height / this.dpr;
+    this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    this.s = clamp(this.H / CFG.REF_H, 0.55, 1.6);   // gameplay scale factor
+    if (this.bucket) { this.bucket.y = this.H * CFG.BUCKET_Y; }
+  }
+
+  /* --------------------------------------------------------------- setup */
+  reset(){
+    this.score = 0;
+    this.displayScore = 0;
+    this.lives = CFG.LIVES;
+    this.combo = 0;
+    this.bestCombo = 0;
+    this.comboTimer = 0;
+    this.caught = 0;
+    this.nextStreak = 0;
+    this.night = 0;
+    this.announcedNight = false;
+    this.spawnTimer = 0.8;
+    this.powerTimer = rand(9, 13);
+    this.hitFlash = 0;
+    this.catchGlow = 0;
+    this.power = { magnet:0, titanium:0 };
+    this.items.length = 0;
+    this.fx.clear();
+    this.popups.clear();
+    this.bucket.reset(this.W, this.H, this.s);
+    Input.x = null; Input.active = false;
+  }
+
+  /* ------------------------------------------------------- phase / tuning */
+  get phaseName(){ return this.night > 0.55 ? "Night Shift" : this.night > 0.05 ? "Dusk" : "Morning Shift"; }
+  get scoreMult(){ return 1 + this.night; }          // Night pays double
+  get speedMul(){ return 1 + this.night * 0.55 + Math.min(0.35, this.caught * 0.004); }
+  get hazardChance(){ return 0.15 + this.night * 0.17 + Math.min(0.06, this.caught * 0.0008); }
+  get spawnInterval(){
+    const base = lerp(CFG.SPAWN_START, CFG.SPAWN_FLOOR + 0.16, this.night);
+    return Math.max(CFG.SPAWN_FLOOR, base - Math.min(0.22, this.caught * 0.0026));
+  }
+  get multiplier(){ return Math.min(CFG.COMBO_MAX_MULT, 1 + Math.floor(this.combo / 4)); }
+
+  /* -------------------------------------------------------------- spawner */
+  spawn(){
+    const s = this.s, margin = 60 * s;
+    const x = rand(margin, this.W - margin);
+    const y = -40 * s;
+    let type;
+    if (Math.random() < this.hazardChance){
+      type = Math.random() < 0.6 ? "drum" : "rubble";
+    } else {
+      const pool = ["beam", "pipe", "plate", "crate"];
+      let total = pool.reduce((a, k) => a + ITEMS[k].weight, 0), roll = Math.random() * total;
+      type = pool.find(k => (roll -= ITEMS[k].weight) <= 0) || "beam";
+    }
+    this.items.push(new FallingItem(type, x, y, s, this.speedMul));
+  }
+  spawnPower(){
+    const s = this.s, margin = 70 * s;
+    const type = Math.random() < 0.5 ? "magnet" : "titan";
+    const it = new FallingItem(type, rand(margin, this.W - margin), -40 * s, s, 0.72);
+    this.items.push(it);
+  }
+
+  /* ---------------------------------------------------------------- score */
+  award(item){
+    const base = item.def.value;
+    const mult = this.multiplier;
+    const pts = Math.round(base * mult * this.scoreMult);
+    this.score += pts;
+    this.caught++;
+    this.combo++;
+    this.bestCombo = Math.max(this.bestCombo, this.combo);
+    this.comboTimer = CFG.COMBO_WINDOW;
+    this.catchGlow = 1;
+
+    const col = item.type === "plate" ? "#FFE58A" : PALETTE.hivis;
+    this.popups.add(item.x, item.y - 14 * this.s, `+${pts}`, col, 22 * this.s);
+    this.fx.sparks(item.x, item.y, 14, col, Math.PI * 1.2, -Math.PI / 2, 300 * this.s);
+    this.fx.ring(item.x, item.y, col, 70 * this.s, 3);
+    this.bucket.pop(0.55);
+    this.shake.kick(2.2 + Math.min(4, mult * 0.5));
+    Audio_.catch_(this.combo);
+
+    /* micro-reward: escalating streak callouts */
+    while (this.nextStreak < STREAKS.length && this.combo >= STREAKS[this.nextStreak].at){
+      const st = STREAKS[this.nextStreak++];
+      this.popups.add(this.W / 2, this.H * 0.34, st.text, PALETTE.hivis, 46 * this.s);
+      this.fx.ring(this.W / 2, this.H * 0.34, PALETTE.hivis, 190 * this.s, 4);
+      this.shake.kick(6);
+      Audio_.bonus();
+    }
+  }
+
+  grabPower(item){
+    const kind = item.def.power;
+    this.power[kind] = CFG.POWER_TIME;
+    const label = kind === "magnet" ? "MAGNETIC FIELD" : "TITANIUM FRAME";
+    this.popups.add(this.W / 2, this.H * 0.42, label, PALETTE.coolant, 38 * this.s);
+    this.popups.add(item.x, item.y - 12 * this.s, "ENGAGED", PALETTE.coolant, 18 * this.s);
+    this.fx.sparks(item.x, item.y, 26, PALETTE.coolant, TAU, 0, 340 * this.s);
+    this.fx.ring(item.x, item.y, PALETTE.coolant, 150 * this.s, 5);
+    this.bucket.pop(0.8);
+    this.shake.kick(5);
+    Audio_.bonus();
+  }
+
+  smashHazard(item){
+    this.score += Math.round(40 * this.scoreMult);
+    this.popups.add(item.x, item.y - 12 * this.s, "SMASHED", PALETTE.coolant, 20 * this.s);
+    this.fx.debris(item.x, item.y, 16, PALETTE.hazard);
+    this.fx.ring(item.x, item.y, PALETTE.coolant, 110 * this.s, 4);
+    this.shake.kick(7);
+    this.bucket.pop(0.5);
+    Audio_.smash();
+  }
+
+  takeHit(item){
+    this.lives--;
+    this.combo = 0; this.nextStreak = 0; this.comboTimer = 0;
+    this.hitFlash = 1;
+    this.fx.debris(item.x, item.y, 24, PALETTE.hazard);
+    this.fx.sparks(item.x, item.y, 18, "#FF8A6A", TAU, 0, 320 * this.s);
+    this.fx.ring(item.x, item.y, PALETTE.hazard, 190 * this.s, 6);
+    this.popups.add(item.x, item.y - 16 * this.s, "-1 LIFE", PALETTE.hazard, 26 * this.s);
+    this.shake.kick(22);
+    this.bucket.pop(0.9);
+    Audio_.hit();
+    if (this.lives <= 0) this.gameOver();
+  }
+
+  missMaterial(item){
+    if (this.combo >= 4) this.popups.add(item.x, this.H * CFG.FLOOR_Y - 26 * this.s, "STREAK LOST", PALETTE.concrete, 18 * this.s);
+    this.combo = 0; this.nextStreak = 0; this.comboTimer = 0;
+    this.fx.dust(item.x, this.H * CFG.FLOOR_Y, "#9A9384");
+    Audio_.miss();
+  }
+
+  /* ----------------------------------------------------------- transitions */
+  gameOver(){
+    this.state = "over";
+    this.fx.debris(this.bucket.x, this.bucket.y, 30, PALETTE.hivis);
+    this.shake.kick(26);
+    this.isRecord = this.score > 0 && this.score > this.best;
+    if (this.isRecord){ this.best = this.score; store.set("tm_best", this.best); }
+    Audio_.over();
+    Shell.showGameOver(this);
+  }
+  togglePause(){
+    if (this.state === "playing"){ this.state = "paused"; Shell.el.pause.hidden = false; }
+    else if (this.state === "paused"){ this.state = "playing"; Shell.el.pause.hidden = true; }
+  }
+
+  /* ----------------------------------------------------------------- tick */
+  update(dt){
+    this.time += dt;
+    this.bg.update(dt, this.s);
+    this.shake.update(dt);
+    this.fx.update(dt, CFG.GRAVITY * this.s);
+    this.popups.update(dt);
+    this.displayScore = damp(this.displayScore, this.score, 9, dt);
+    this.hitFlash = Math.max(0, this.hitFlash - dt * 2.2);
+    this.catchGlow = Math.max(0, this.catchGlow - dt * 2.5);
+
+    if (this.state !== "playing"){
+      /* attract mode still breathes: backdrop + particles keep running */
+      if (this.state === "menu") this.night = 0.18 + (Math.sin(this.time * 0.14) * 0.5 + 0.5) * 0.55;
+      return;
+    }
+
+    /* Phase curve: hold Morning, then ease into Night. Driven by material
+       handled OR raw score, whichever is further along — so a steady operator
+       and a combo specialist both get to see the lights come on. */
+    const byCatch = (this.caught - CFG.DUSK_CATCH) / (CFG.NIGHT_CATCH - CFG.DUSK_CATCH);
+    const byScore = (this.score - CFG.DUSK_SCORE) / (CFG.NIGHT_SCORE - CFG.DUSK_SCORE);
+    const t = clamp(Math.max(byCatch, byScore), 0, 1);
+    this.night = damp(this.night, easeOutCubic(t), 1.6, dt);
+    if (!this.announcedNight && this.night > 0.6){
+      this.announcedNight = true;
+      this.popups.add(this.W / 2, this.H * 0.28, "NIGHT SHIFT", PALETTE.coolant, 54 * this.s);
+      this.popups.add(this.W / 2, this.H * 0.28 + 44 * this.s, "DOUBLE PAY · FASTER DROPS", PALETTE.paper, 20 * this.s, 600);
+      this.shake.kick(8);
+      Audio_.phase();
+    }
+
+    this.bucket.update(dt, this.W, this.H, this.s, this);
+
+    /* power-up timers */
+    for (const k of ["magnet", "titanium"]){
+      if (this.power[k] > 0){
+        this.power[k] -= dt;
+        if (this.power[k] <= 0){
+          this.power[k] = 0;
+          this.popups.add(this.bucket.x, this.bucket.y - 70 * this.s,
+            (k === "magnet" ? "FIELD" : "FRAME") + " OFFLINE", PALETTE.concrete, 17 * this.s, 600);
+        }
+      }
+    }
+
+    /* spawn director */
+    this.spawnTimer -= dt;
+    if (this.spawnTimer <= 0){
+      this.spawn();
+      this.spawnTimer = this.spawnInterval * rand(0.82, 1.18);
+    }
+    this.powerTimer -= dt;
+    if (this.powerTimer <= 0){
+      this.spawnPower();
+      this.powerTimer = rand(11, 17);
+    }
+
+    /* combo decay */
+    if (this.comboTimer > 0){
+      this.comboTimer -= dt;
+      if (this.comboTimer <= 0 && this.combo > 0){ this.combo = 0; this.nextStreak = 0; }
+    }
+
+    /* items + collision */
+    const mouth = this.bucket.mouth(this.s);
+    const floor = this.H * CFG.FLOOR_Y;
+    for (let i = this.items.length - 1; i >= 0; i--){
+      const it = this.items[i];
+      it.update(dt, this.s, this);
+
+      const overlapX = it.x + it.r * 0.55 > mouth.x0 && it.x - it.r * 0.55 < mouth.x1;
+      const overlapY = it.y + it.r > mouth.y0 && it.y - it.r * 0.6 < mouth.y1;
+      if (it.vy > 0 && overlapX && overlapY){
+        if (it.kind === "material") this.award(it);
+        else if (it.kind === "power") this.grabPower(it);
+        else if (this.power.titanium > 0) this.smashHazard(it);
+        else this.takeHit(it);
+        this.items.splice(i, 1);
+        continue;
+      }
+      if (it.y - it.r > floor){
+        if (it.kind === "material") this.missMaterial(it);
+        else if (it.kind === "hazard") this.fx.dust(it.x, floor, "#B04030");
+        this.items.splice(i, 1);
+      }
+    }
+  }
+
+  /* ---------------------------------------------------------------- draw */
+  draw(){
+    const ctx = this.ctx, W = this.W, H = this.H, s = this.s;
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    ctx.save();
+    ctx.translate(W / 2, H / 2);
+    ctx.rotate(this.shake.rot);
+    ctx.translate(-W / 2 + this.shake.x, -H / 2 + this.shake.y);
+
+    this.bg.draw(ctx, W, H, this.night, s);
+
+    /* the catch line: hazard tape marking the point of no return */
+    const floor = H * CFG.FLOOR_Y;
+    ctx.save();
+    ctx.globalAlpha = 0.28 + this.catchGlow * 0.2;
+    ctx.strokeStyle = PALETTE.hivis;
+    ctx.lineWidth = 2 * s;
+    ctx.setLineDash([14 * s, 12 * s]);
+    ctx.lineDashOffset = -this.time * 40 * s;
+    ctx.beginPath(); ctx.moveTo(0, floor); ctx.lineTo(W, floor); ctx.stroke();
+    ctx.restore();
+
+    if (this.state !== "menu") this.bucket.draw(ctx, s, this, this.time);
+    for (const it of this.items) it.draw(ctx, s, this.night, this.time);
+    this.fx.draw(ctx);
+    ctx.restore();
+
+    /* damage vignette — sits above the shake so it never judders */
+    if (this.hitFlash > 0){
+      const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.28, W / 2, H / 2, H * 0.78);
+      g.addColorStop(0, "rgba(224,72,58,0)");
+      g.addColorStop(1, `rgba(224,72,58,${0.5 * this.hitFlash})`);
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    }
+    /* night grade + scanline grain keep the two shifts visually distinct */
+    if (this.night > 0.02){
+      ctx.fillStyle = `rgba(10,16,30,${this.night * 0.20})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    this.popups.draw(ctx);
+    if (this.state !== "menu") this.drawHUD(ctx, W, H, s);
+  }
+
+  /* ------------------------------------------------------------ 7. HUD */
+  drawHUD(ctx, W, H, s){
+    const pad = Math.max(10, 16 * s);
+    const narrow = W < 660;
+    const label = (t, x, y, size, color, align = "left") => {
+      ctx.font = `600 ${size}px "Barlow Condensed", "Chakra Petch", sans-serif`;
+      ctx.textAlign = align; ctx.textBaseline = "alphabetic";
+      ctx.fillStyle = color; ctx.fillText(t, x, y);
+    };
+    const num = (t, x, y, size, color, align = "left") => {
+      ctx.font = `700 ${size}px "Chakra Petch", sans-serif`;
+      ctx.textAlign = align; ctx.textBaseline = "alphabetic";
+      ctx.fillStyle = color; ctx.fillText(t, x, y);
+    };
+    const plate = (x, y, w, h) => {
+      ctx.fillStyle = "rgba(12,13,15,.55)";
+      ctx.strokeStyle = "rgba(244,208,63,.22)";
+      ctx.lineWidth = 1;
+      rrect(ctx, x, y, w, h, 3 * s); ctx.fill(); ctx.stroke();
+    };
+    const bar = (x, y, w, h, frac, color) => {
+      ctx.fillStyle = "rgba(233,237,240,.14)";
+      rrect(ctx, x, y, w, h, h / 2); ctx.fill();
+      ctx.fillStyle = color;
+      rrect(ctx, x, y, w * clamp(frac, 0, 1), h, h / 2); ctx.fill();
+    };
+    const lifeIcon = (bx, by, alive, r) => {
+      ctx.globalAlpha = alive ? 1 : 0.22;
+      ctx.strokeStyle = alive ? PALETTE.hivis : PALETTE.concrete;
+      ctx.lineWidth = 2.2 * s;
+      ctx.beginPath();
+      ctx.moveTo(bx - r, by - r * 0.72);
+      ctx.lineTo(bx + r, by - r * 0.72);
+      ctx.lineTo(bx + r * 0.72, by + r * 0.55);
+      ctx.quadraticCurveTo(bx, by + r * 1.18, bx - r * 0.72, by + r * 0.55);
+      ctx.closePath(); ctx.stroke();
+      ctx.globalAlpha = 1;
+    };
+
+    const shiftColor = mixHex(PALETTE.hivis, PALETTE.coolant, this.night);
+    const scoreH = narrow ? 50 * s : 62 * s;
+    const lifeR = 10 * s, lifeGap = 30 * s;
+
+    /* --- row 1: salvage value (left) + rig integrity (right) ------------- */
+    const livesW = 28 * s + lifeGap * CFG.LIVES;
+    const scoreW = narrow ? Math.max(120 * s, W - pad * 2 - livesW - 8 * s) : 190 * s;
+    plate(pad, pad, scoreW, scoreH);
+    label("SALVAGE VALUE", pad + 12 * s, pad + 18 * s, 13 * s, "rgba(233,237,240,.55)");
+    num(Math.round(this.displayScore).toLocaleString(), pad + 12 * s, pad + scoreH - 12 * s, (narrow ? 24 : 30) * s, PALETTE.hivis);
+    label(`BEST ${this.best.toLocaleString()}`, pad + scoreW - 12 * s, pad + scoreH - 12 * s, 13 * s, "rgba(233,237,240,.4)", "right");
+
+    const lx = W - pad - livesW;
+    plate(lx, pad, livesW, scoreH);
+    if (!narrow) label("RIG INTEGRITY", lx + livesW - 12 * s, pad + 18 * s, 13 * s, "rgba(233,237,240,.55)", "right");
+    for (let i = 0; i < CFG.LIVES; i++){
+      lifeIcon(lx + 14 * s + lifeR + i * lifeGap, pad + (narrow ? scoreH / 2 : scoreH - 22 * s), i < this.lives, lifeR);
+    }
+
+    /* --- row 2 (or centre plate): shift indicator ------------------------ */
+    let rowY = pad + scoreH + 8 * s;
+    if (narrow){
+      const h = 30 * s;
+      plate(pad, rowY, W - pad * 2, h);
+      label(this.phaseName.toUpperCase(), pad + 12 * s, rowY + 20 * s, 14 * s, shiftColor);
+      const bw2 = (W - pad * 2) * 0.42;
+      bar(W - pad - 12 * s - bw2, rowY + h / 2 - 2 * s, bw2, 4 * s, Math.max(this.night, 0.02), shiftColor);
+      rowY += h + 8 * s;
+    } else {
+      const cw = 210 * s, cx = W / 2 - cw / 2;
+      plate(cx, pad, cw, 44 * s);
+      label(this.phaseName.toUpperCase(), W / 2, pad + 20 * s, 14 * s, shiftColor, "center");
+      bar(cx + 12 * s, pad + 30 * s, cw - 24 * s, 4 * s, Math.max(this.night, 0.02), shiftColor);
+    }
+
+    /* --- combo meter ----------------------------------------------------- */
+    if (this.combo > 0){
+      const cwid = narrow ? W - pad * 2 : 190 * s, h = 40 * s;
+      const y = narrow ? rowY : pad + scoreH + 10 * s;
+      plate(pad, y, cwid, h);
+      const frac = clamp(this.comboTimer / CFG.COMBO_WINDOW, 0, 1);
+      label(`${this.combo} STREAK`, pad + 12 * s, y + 19 * s, 14 * s, "rgba(233,237,240,.7)");
+      num(`${this.multiplier}×`, pad + cwid - 12 * s, y + 22 * s, 22 * s, PALETTE.hivis, "right");
+      bar(pad + 12 * s, y + 27 * s, cwid - 24 * s, 4 * s, frac, frac > 0.35 ? PALETTE.hivis : PALETTE.hazard);
+    }
+
+    /* --- power-up pills (bottom-left) ------------------------------------ */
+    let py = H - pad - 30 * s;
+    const pill = (name, left, color) => {
+      const w = Math.min(204 * s, W - pad * 2), h = 26 * s, frac = left / CFG.POWER_TIME;
+      ctx.fillStyle = "rgba(12,13,15,.6)";
+      ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+      rrect(ctx, pad, py, w, h, h / 2); ctx.fill(); ctx.stroke();
+      ctx.save();
+      rrect(ctx, pad, py, w, h, h / 2); ctx.clip();
+      ctx.globalAlpha = 0.22; ctx.fillStyle = color;
+      ctx.fillRect(pad, py, w * frac, h);
+      ctx.restore();
+      label(name, pad + 15 * s, py + 18 * s, 13.5 * s, color);
+      num(left.toFixed(1) + "s", pad + w - 12 * s, py + 18 * s, 13.5 * s, color, "right");
+      py -= h + 6 * s;
+    };
+    if (this.power.magnet > 0)   pill("MAGNETIC FIELD", this.power.magnet, PALETTE.coolant);
+    if (this.power.titanium > 0) pill("TITANIUM FRAME", this.power.titanium, PALETTE.paper);
+  }
+}
+
+/* --------------------------------------------------- 7b. RANKING + SHELL */
+function rankFor(score){
+  let idx = 0;
+  for (let i = 0; i < RANKS.length; i++) if (score >= RANKS[i].at) idx = i;
+  return { idx, rank: RANKS[idx], next: RANKS[idx + 1] || null };
+}
+
+const RANK_MARKS = [
+  /* Rookie — single chevron */
+  '<svg viewBox="0 0 44 44" fill="none" stroke="#F4D03F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 27l14-11 14 11"/></svg>',
+  /* Site Foreman — double chevron */
+  '<svg viewBox="0 0 44 44" fill="none" stroke="#F4D03F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 22L22 11l14 11M8 33l14-11 14 11"/></svg>',
+  /* Chief Engineer — gear */
+  '<svg viewBox="0 0 44 44" fill="none" stroke="#F4D03F" stroke-width="3" stroke-linejoin="round"><path d="M22 8l4 3h5l1 5 4 3-2 5 2 5-4 3-1 5h-5l-4 3-4-3h-5l-1-5-4-3 2-5-2-5 4-3 1-5h5z"/><circle cx="22" cy="24" r="5"/></svg>',
+  /* TerraMech Master — bucket + crown of teeth */
+  '<svg viewBox="0 0 44 44" fill="none" stroke="#F4D03F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 16h26l-4 14a10 10 0 01-18 0z"/><path d="M12 16l2-5 4 5 4-6 4 6 4-5 2 5"/></svg>',
+];
+
+const Shell = {
+  el:{},
+  init(){
+    this.el = {
+      canvas: document.getElementById("game"),
+      start:  document.getElementById("screen-start"),
+      over:   document.getElementById("screen-over"),
+      pause:  document.getElementById("screen-pause"),
+      sound:  document.getElementById("btn-sound"),
+      rankMark: document.getElementById("rank-mark"),
+      rankTitle: document.getElementById("rank-title"),
+      rankSub: document.getElementById("rank-sub"),
+      statScore: document.getElementById("stat-score"),
+      statCombo: document.getElementById("stat-combo"),
+      statCaught: document.getElementById("stat-caught"),
+      statPhase: document.getElementById("stat-phase"),
+      ladder: document.getElementById("ladder"),
+      record: document.getElementById("record-flag"),
+      nextHint: document.getElementById("next-hint"),
+    };
+    this.game = new Game(this.el.canvas);
+    Input.attach(this.el.canvas, this.game);
+
+    document.getElementById("btn-start").addEventListener("click", () => this.start());
+    document.getElementById("btn-again").addEventListener("click", () => this.start());
+    document.getElementById("btn-menu").addEventListener("click", () => this.toMenu());
+    document.getElementById("btn-resume").addEventListener("click", () => this.game.togglePause());
+    document.getElementById("btn-abandon").addEventListener("click", () => {
+      this.el.pause.hidden = true;
+      this.game.gameOver();
+    });
+    this.el.sound.addEventListener("click", () => this.toggleSound());
+    this.syncSound();
+
+    /* auto-pause whenever the operator looks away */
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden && this.game.state === "playing") this.game.togglePause();
+    });
+
+    this.loop = this.loop.bind(this);
+    this.last = performance.now();
+    requestAnimationFrame(this.loop);
+  },
+
+  start(){
+    Audio_.init();
+    if (Audio_.ctx && Audio_.ctx.state === "suspended") Audio_.ctx.resume();
+    this.el.start.hidden = true;
+    this.el.over.hidden = true;
+    this.el.pause.hidden = true;
+    this.game.resize();
+    this.game.reset();
+    this.game.state = "playing";
+  },
+  toMenu(){
+    this.el.over.hidden = true;
+    this.el.start.hidden = false;
+    this.game.reset();
+    this.game.state = "menu";
+  },
+  toggleSound(){
+    Audio_.on = !Audio_.on;
+    store.set("tm_sound", Audio_.on);
+    this.syncSound();
+    if (Audio_.on){ Audio_.init(); Audio_.blip(520, 0.08, "triangle", 0.3); }
+  },
+  syncSound(){
+    this.el.sound.textContent = `Sound: ${Audio_.on ? "on" : "off"}`;
+    this.el.sound.setAttribute("aria-pressed", String(Audio_.on));
+  },
+
+  showGameOver(game){
+    const { idx, rank, next } = rankFor(game.score);
+    this.el.rankMark.innerHTML = RANK_MARKS[idx];
+    this.el.rankTitle.textContent = rank.name;
+    this.el.rankSub.textContent = rank.sub;
+    this.el.record.hidden = !game.isRecord;
+    this.el.statScore.textContent = game.score.toLocaleString();
+    this.el.statCombo.textContent = game.bestCombo + "×";
+    this.el.statCaught.textContent = game.caught;
+    this.el.statPhase.textContent = game.announcedNight ? "Night" : game.night > 0.05 ? "Dusk" : "Morning";
+
+    this.el.ladder.innerHTML = RANKS.map((r, i) => {
+      const cls = i === idx ? "current" : i < idx ? "done" : "";
+      return `<li class="${cls}"><span>${r.name}</span><span class="req">${r.at.toLocaleString()}+</span></li>`;
+    }).join("");
+
+    this.el.nextHint.textContent = next
+      ? `${rank.line} ${ (next.at - game.score).toLocaleString() } more points to make ${next.name}.`
+      : `${rank.line} Top of the ladder — the board is yours.`;
+
+    this.el.over.hidden = false;
+  },
+
+  loop(now){
+    const dt = Math.min(0.05, (now - this.last) / 1000);   // clamp tab-switch spikes
+    this.last = now;
+    this.game.update(dt);
+    this.game.draw();
+    requestAnimationFrame(this.loop);
+  },
+};
+
+/* Wait for the display face so the canvas HUD never flashes a fallback. */
+if (document.fonts && document.fonts.ready){
+  document.fonts.ready.then(() => Shell.init());
+} else {
+  Shell.init();
+}
+</script>
