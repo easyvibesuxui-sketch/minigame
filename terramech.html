@@ -446,6 +446,7 @@ const TAU = Math.PI * 2;
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const lerp  = (a, b, t) => a + (b - a) * t;
 const rand  = (a, b) => a + Math.random() * (b - a);
+const randInt = (a, b) => Math.floor(rand(a, b + 1));
 const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
 const easeOutBack  = t => 1 + 2.7 * Math.pow(t - 1, 3) + 1.7 * Math.pow(t - 1, 2);
 /* Frame-rate independent exponential smoothing. */
@@ -670,13 +671,21 @@ class Popups {
 }
 
 class Shake {
-  constructor(){ this.mag = 0; this.x = 0; this.y = 0; this.rot = 0; }
+  constructor(){ this.mag = 0; this.x = 0; this.y = 0; this.rot = 0; this.t = 0; }
   kick(m){ this.mag = Math.min(28, this.mag + (REDUCED ? m * 0.25 : m)); }
   update(dt){
+    this.t += dt;
+    /* a hand-held drift under the impact shake — small enough to feel, not see */
+    const swayX = REDUCED ? 0 : Math.sin(this.t * 0.34) * 2.2 + Math.sin(this.t * 0.13) * 1.4;
+    const swayY = REDUCED ? 0 : Math.cos(this.t * 0.27) * 1.6;
     this.mag = damp(this.mag, 0, 7.5, dt);
-    if (this.mag < 0.05){ this.mag = this.x = this.y = this.rot = 0; return; }
-    this.x = rand(-1, 1) * this.mag;
-    this.y = rand(-1, 1) * this.mag;
+    if (this.mag < 0.05){
+      this.mag = 0; this.rot = 0;
+      this.x = swayX; this.y = swayY;
+      return;
+    }
+    this.x = swayX + rand(-1, 1) * this.mag;
+    this.y = swayY + rand(-1, 1) * this.mag;
     this.rot = rand(-1, 1) * this.mag * 0.0012;
   }
 }
@@ -1482,31 +1491,60 @@ class Bucket {
     ctx.beginPath(); ctx.ellipse(gx, gy, gs * 2.1, gs * 0.62, 0, 0, TAU); ctx.fill();
     ctx.restore();
 
-    /* interior floor, then the far wall seen from inside, then the near face */
+    /* Built up like a real scoop: a dark shell, a machined rim plate on top of
+       the walls, and a light skid band along the leading edge. */
+    const inset = 0.10;
+    const shell = shade(body, 0.42);
+
+    /* interior floor and the far wall seen from inside */
     quad([[this.x - hw, 0.03, zN], [this.x + hw, 0.03, zN],
-          [this.x + hw, 0.03, zF], [this.x - hw, 0.03, zF]], shade(body, 0.34), 0.95);
+          [this.x + hw, 0.03, zF], [this.x - hw, 0.03, zF]], shade(body, 0.26), 0.95);
     quad([[this.x - hw + lean, h, zF], [this.x + hw + lean, h, zF],
-          [this.x + hw, 0.03, zF], [this.x - hw, 0.03, zF]], shade(body, 0.52));
+          [this.x + hw, 0.03, zF], [this.x - hw, 0.03, zF]], shade(body, 0.46));
     for (const sgn of [-1, 1]){
       quad([[this.x + sgn * hw, 0.03, zN], [this.x + sgn * hw + lean, h, zN],
-            [this.x + sgn * hw + lean, h, zF], [this.x + sgn * hw, 0.03, zF]], shade(body, 0.44));
+            [this.x + sgn * hw + lean, h, zF], [this.x + sgn * hw, 0.03, zF]], shell);
     }
-    quad([[this.x - hw, 0.03, zN], [this.x - hw + lean, h, zN],
-          [this.x + hw + lean, h, zN], [this.x + hw, 0.03, zN]], shade(body, 0.92, this.flash * 0.25));
 
-    /* rim + cutting teeth on the far lip */
+    /* near face, graded down its height, with the skid band under it */
+    const nf0 = P(this.x, h, zN), nf1 = P(this.x, 0.03, zN);
+    const ng = ctx.createLinearGradient(nf0[0], nf0[1], nf1[0], nf1[1]);
+    ng.addColorStop(0, shade(body, 1.0, this.flash * 0.22));
+    ng.addColorStop(1, shade(body, 0.58, this.flash * 0.1));
+    quad([[this.x - hw, 0.16, zN], [this.x - hw + lean, h, zN],
+          [this.x + hw + lean, h, zN], [this.x + hw, 0.16, zN]], ng);
+    quad([[this.x - hw, 0.03, zN], [this.x - hw, 0.16, zN],
+          [this.x + hw, 0.16, zN], [this.x + hw, 0.03, zN]], shade(edge, 0.92));
+
+    /* the rim: a flat ring on top of the walls, brighter than the shell */
     ctx.save();
-    ctx.strokeStyle = edge;
-    ctx.lineWidth = Math.max(1.6, 2.4 * s);
-    ctx.lineJoin = "round";
-    if (!REDUCED){ ctx.shadowColor = body; ctx.shadowBlur = 16 * s; }
     ctx.beginPath();
     [[this.x - hw + lean, h, zN], [this.x + hw + lean, h, zN],
-     [this.x + hw + lean, h, zF], [this.x - hw + lean, h, zF]].forEach((p, i) => {
-      const q = P(p[0], p[1], p[2]); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]);
-    });
+     [this.x + hw + lean, h, zF], [this.x - hw + lean, h, zF]]
+      .forEach((p, i) => { const q = P(p[0], p[1], p[2]); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); });
+    ctx.closePath();
+    [[this.x - hw + hw * inset + lean, h, zN + 0.16], [this.x + hw - hw * inset + lean, h, zN + 0.16],
+     [this.x + hw - hw * inset + lean, h, zF - 0.16], [this.x - hw + hw * inset + lean, h, zF - 0.16]]
+      .reverse().forEach((p, i) => { const q = P(p[0], p[1], p[2]); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); });
+    ctx.closePath();
+    ctx.fillStyle = shade(edge, 0.96);
+    ctx.fill("evenodd");
+    ctx.restore();
+
+    /* contour + cutting teeth on the far lip */
+    ctx.save();
+    ctx.strokeStyle = shade(body, 0.22);
+    ctx.lineWidth = Math.max(1.1, 1.6 * s);
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    [[this.x - hw, 0.03, zN], [this.x - hw + lean, h, zN],
+     [this.x + hw + lean, h, zN], [this.x + hw, 0.03, zN]]
+      .forEach((p, i) => { const q = P(p[0], p[1], p[2]); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); });
     ctx.closePath(); ctx.stroke();
 
+    ctx.strokeStyle = edge;
+    ctx.lineWidth = Math.max(1.6, 2.2 * s);
+    if (!REDUCED){ ctx.shadowColor = body; ctx.shadowBlur = 14 * s; }
     ctx.beginPath();
     for (let i = -2; i <= 2; i++){
       const tx = this.x + i * (hw * 0.42) + lean;
@@ -1569,6 +1607,7 @@ class Game {
     this.shake = new Shake();
     this.bloom = new Bloom();
     this.items = [];
+    this.rings = [];      // impact rings that live on the deck, in world space
     this.time = 0;
     this.best = store.get("tm_best", 0);
     this.isRecord = false;
@@ -1602,11 +1641,13 @@ class Game {
     this.night = 0;
     this.announcedNight = false;
     this.spawnTimer = 0.9;
+    this.waveCooldown = 3;
     this.powerTimer = rand(9, 13);
     this.hitFlash = 0;
     this.catchGlow = 0;
     this.power = { magnet:0, titanium:0 };
     this.items.length = 0;
+    this.rings.length = 0;
     this.fx.clear();
     this.popups.clear();
     this.bucket.reset(this.view);
@@ -1637,10 +1678,61 @@ class Game {
     }
     this.items.push(new FallingItem(type, rand(-lane, lane), this.speedMul));
   }
+  /* A salvage run: staggered so a good operator can sweep the whole line,
+     each piece landing about a third of a second after the last. */
+  spawnRun(){
+    const lane = this.view.playW * 0.78;
+    const n = randInt(4, 6);
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    const startX = -dir * lane * rand(0.55, 0.95);
+    const step = (dir * lane * 1.5) / n;
+    const pool = ["beam", "pipe", "plate", "crate"];
+    for (let i = 0; i < n; i++){
+      let total = pool.reduce((a, k) => a + ITEMS[k].weight, 0), roll = Math.random() * total;
+      const type = pool.find(k => (roll -= ITEMS[k].weight) <= 0) || "beam";
+      const it = new FallingItem(type, clamp(startX + step * i, -lane, lane), this.speedMul);
+      it.z = CFG.Z_SPAWN + i * 1.9;          // z-stagger is what makes it sweepable
+      it.h0 = 0.5; it.arc = 0.16;
+      this.items.push(it);
+    }
+    return 1.4 + n * 0.28;
+  }
+
+  /* A hazard wall with one gap — the shape the whole yard is read through. */
+  spawnWall(){
+    const lane = this.view.playW * 0.9;
+    const cells = 7;
+    const gap = randInt(0, cells - 1);
+    const cellW = (lane * 2) / cells;
+    for (let i = 0; i < cells; i++){
+      if (i === gap || (Math.random() < 0.12 && Math.abs(i - gap) > 1)) continue;
+      const x = -lane + cellW * (i + 0.5);
+      const it = new FallingItem(Math.random() < 0.86 ? "drum" : "rubble", x, this.speedMul * 0.92);
+      it.z = CFG.Z_SPAWN + rand(-0.15, 0.15);
+      it.h0 = 0.5; it.arc = 0.1;
+      this.items.push(it);
+    }
+    /* a reward sitting in the gap rewards reading the wall early */
+    if (Math.random() < 0.6){
+      const x = -lane + cellW * (gap + 0.5);
+      const it = new FallingItem(Math.random() < 0.4 ? "plate" : "beam", x, this.speedMul * 0.92);
+      it.z = CFG.Z_SPAWN + 0.4; it.h0 = 0.5; it.arc = 0.1;
+      this.items.push(it);
+    }
+    this.popups.add(this.W / 2, this.H * 0.24, "WALL INBOUND", PALETTE.hazard, 26 * this.s, 600);
+    return 2.2;
+  }
+
   spawnPower(){
     const lane = this.view.playW * 0.7;
     const type = Math.random() < 0.5 ? "magnet" : "titan";
     this.items.push(new FallingItem(type, rand(-lane, lane), 0.72));
+  }
+
+  /* A dust ring kicked up where something met the deck. Drawn in world space
+     so it foreshortens correctly instead of reading as a screen decal. */
+  groundRing(x, z, color, max = 2.6, life = 0.55){
+    this.rings.push({ x, z, color, max, life, age: 0 });
   }
 
   /* Screen position of a world point, for spawning screen-space FX. */
@@ -1670,6 +1762,7 @@ class Game {
     this.popups.add(sx, sy - 30 * this.s, `+${pts}`, col, 22 * this.s);
     this.fx.sparks(sx, sy, 16, col, Math.PI * 1.3, -Math.PI / 2, 340 * scale);
     this.fx.ring(sx, sy, col, 80 * scale, 3);
+    this.groundRing(item.x, CFG.Z_CATCH, rgba(col, 0.9), 2.2, 0.5);
     this.bucket.pop(0.55);
     this.shake.kick(2.4 + Math.min(4, mult * 0.5));
     Audio_.catch_(this.combo);
@@ -1701,6 +1794,7 @@ class Game {
     this.popups.add(sx, sy - 24 * this.s, "SMASHED", PALETTE.coolant, 20 * this.s);
     this.fx.debris(sx, sy, 18, PALETTE.hazard, sc / 220);
     this.fx.ring(sx, sy, PALETTE.coolant, 120 * (sc / 220), 4);
+    this.groundRing(item.x, CFG.Z_CATCH, rgba(PALETTE.coolant, 0.9), 3.0, 0.55);
     this.shake.kick(7);
     this.bucket.pop(0.5);
     Audio_.smash();
@@ -1714,6 +1808,7 @@ class Game {
     this.fx.debris(sx, sy, 26, PALETTE.hazard, scale);
     this.fx.sparks(sx, sy, 20, "#FF8A6A", TAU, 0, 340 * scale);
     this.fx.ring(sx, sy, PALETTE.hazard, 210 * scale, 6);
+    this.groundRing(item.x, CFG.Z_CATCH, rgba(PALETTE.hazard, 0.95), 4.2, 0.7);
     this.popups.add(sx, sy - 30 * this.s, "-1 LIFE", PALETTE.hazard, 26 * this.s);
     this.shake.kick(22);
     this.bucket.pop(0.9);
@@ -1725,6 +1820,7 @@ class Game {
     if (this.combo >= 4) this.popups.add(sx, sy - 40 * this.s, "STREAK LOST", PALETTE.concrete, 18 * this.s);
     this.combo = 0; this.nextStreak = 0; this.comboTimer = 0;
     this.fx.dust(sx, sy, "#A2977F", sc / 220);
+    this.groundRing(item.x, CFG.Z_CATCH, "rgba(190,160,120,.8)", 1.8, 0.5);
     Audio_.miss();
   }
 
@@ -1758,6 +1854,10 @@ class Game {
     this.shake.update(dt);
     this.fx.update(dt, 900 * this.s);
     this.popups.update(dt);
+    for (let i = this.rings.length - 1; i >= 0; i--){
+      this.rings[i].age += dt;
+      if (this.rings[i].age >= this.rings[i].life) this.rings.splice(i, 1);
+    }
     this.displayScore = damp(this.displayScore, this.score, 9, dt);
     this.hitFlash = Math.max(0, this.hitFlash - dt * 2.2);
     this.catchGlow = Math.max(0, this.catchGlow - dt * 2.5);
@@ -1794,8 +1894,16 @@ class Game {
 
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0){
-      this.spawn();
-      this.spawnTimer = this.spawnInterval * rand(0.82, 1.18);
+      this.waveCooldown -= 1;
+      const roll = Math.random();
+      if (this.waveCooldown <= 0 && roll < 0.42 && this.caught > 3){
+        const hold = roll < 0.17 ? this.spawnWall() : this.spawnRun();
+        this.waveCooldown = randInt(3, 5);
+        this.spawnTimer = hold;
+      } else {
+        this.spawn();
+        this.spawnTimer = this.spawnInterval * rand(0.82, 1.18);
+      }
     }
     this.powerTimer -= dt;
     if (this.powerTimer <= 0){ this.spawnPower(); this.powerTimer = rand(11, 17); }
@@ -1841,6 +1949,23 @@ class Game {
     ctx.translate(-W / 2 + this.shake.x, -H / 2 + this.shake.y);
 
     this.arena.draw(ctx, view, this.night, s, this.dpr);
+
+    /* impact rings sit on the deck, under everything that stands on it */
+    for (const r of this.rings){
+      const t = r.age / r.life, e = easeOutCubic(t);
+      ctx.save();
+      ctx.globalAlpha = (1 - t) * 0.55;
+      ctx.strokeStyle = r.color;
+      ctx.lineWidth = Math.max(1, (1 - e) * 4 * s);
+      ctx.beginPath();
+      for (let i = 0; i <= 22; i++){
+        const a = (i / 22) * TAU;
+        const p = view.project(r.x + Math.cos(a) * r.max * e, 0.02, r.z + Math.sin(a) * r.max * e * 0.85);
+        i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]);
+      }
+      ctx.closePath(); ctx.stroke();
+      ctx.restore();
+    }
 
     const sorted = this.items.slice().sort((a, b) => b.z - a.z);
     for (const it of sorted) it.drawMarker(ctx, view, s);

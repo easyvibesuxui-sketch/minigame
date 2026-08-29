@@ -23,7 +23,8 @@ yard frames identically at any aspect ratio.
 | Camera | Pin-hole projection solved from screen anchors; ground converges on an off-frame horizon, scale falls off as 1/depth |
 | Solids | Every piece is a convex prism (n-gon swept along an axis) with per-face culling, depth sorting and lambert shading |
 | Movement | Exponential-damped lerp on the bucket; residual velocity leans the scoop and smears its light pool |
-| Items | Accelerating approach down the yard with yaw/pitch tumble, a contact shadow, and a landing marker on the catch line |
+| Items | Accelerating approach down the yard with yaw/pitch tumble, a planar cast shadow, and a landing marker on the catch line |
+| Waves | Salvage runs arrive z-staggered so the line can be swept; hazard walls arrive abreast with one gap and a reward sitting in it |
 | Power-ups | Magnetic Field (5s steering pull on materials), Titanium Frame (5s invincibility that smashes hazards) |
 | Phases | Morning → Dusk → Night, driven by material salvaged or score, whichever is further along |
 | VFX | Particle engine (sparks, debris, shockwaves, dust), decaying screen shake, canvas text popups, additive neon rails and flood bloom |
