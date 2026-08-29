@@ -457,10 +457,18 @@ function mixHex(a, b, t){
   return `rgb(${Math.round(lerp(pa[0], pb[0], t))},${Math.round(lerp(pa[1], pb[1], t))},${Math.round(lerp(pa[2], pb[2], t))})`;
 }
 /* Multiply a colour by a lambert term, with an optional lift toward white. */
-function shade(hex, k, lift = 0){
+function shadeRGB(hex, k, lift = 0){
   const c = hexRGB(hex);
-  const f = v => Math.round(clamp(v * k + 255 * lift, 0, 255));
-  return `rgb(${f(c[0])},${f(c[1])},${f(c[2])})`;
+  return c.map(v => clamp(v * k + 255 * lift, 0, 255));
+}
+function shade(hex, k, lift = 0){
+  const c = shadeRGB(hex, k, lift);
+  return `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`;
+}
+/* Aerial perspective: far solids drift toward the light of the yard. */
+const HAZE = [96, 84, 66];
+function hazed(c, amt){
+  return `rgb(${lerp(c[0], HAZE[0], amt) | 0},${lerp(c[1], HAZE[1], amt) | 0},${lerp(c[2], HAZE[2], amt) | 0})`;
 }
 const rgba = (hex, a) => { const c = hexRGB(hex); return `rgba(${c[0]},${c[1]},${c[2]},${a})`; };
 
@@ -673,6 +681,48 @@ class Shake {
   }
 }
 
+/* --------------------------------------------------------------- 3b. BLOOM */
+/* Highlights bleed the way they do on the reference plate: the frame is
+   re-drawn at a fraction of the resolution through a brightness/contrast
+   threshold and a blur, then added back over the scene. Canvas filters are
+   feature-detected — without them the game simply renders unbloomed. */
+class Bloom {
+  constructor(){
+    this.c = document.createElement("canvas");
+    this.ctx = this.c.getContext("2d");
+    this.ok = false;
+    if (this.ctx && !REDUCED){
+      this.ctx.filter = "blur(2px)";
+      this.ok = this.ctx.filter === "blur(2px)";
+      this.ctx.filter = "none";
+    }
+    this.scale = 0.24;
+  }
+  resize(W, H){
+    if (!this.ok) return;
+    this.c.width = Math.max(1, Math.round(W * this.scale));
+    this.c.height = Math.max(1, Math.round(H * this.scale));
+    this.blur = Math.max(2, Math.round(H * this.scale * 0.030));
+  }
+  /* Reads the live frame, so call it after the world is drawn and before
+     anything that must stay crisp (popups, HUD). */
+  apply(ctx, src, W, H, strength){
+    if (!this.ok || strength <= 0) return;
+    const b = this.ctx;
+    b.setTransform(1, 0, 0, 1, 0, 0);
+    b.clearRect(0, 0, this.c.width, this.c.height);
+    b.filter = `brightness(1.08) contrast(3.4) blur(${this.blur}px)`;
+    b.drawImage(src, 0, 0, this.c.width, this.c.height);
+    b.filter = "none";
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = strength;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(this.c, 0, 0, W, H);
+    ctx.restore();
+  }
+}
+
 /* ------------------------------------------------------- 4. VIEW/PROJECTION */
 /* Pin-hole camera sitting at (0, CAM_H, -CAM_D) looking straight down the yard.
    Ground (y = 0) converges on the horizon; scale falls off as 1/depth. */
@@ -752,20 +802,35 @@ function drawMesh(ctx, view, mesh, pos, yaw, pitch, opt){
     for (const i of f) depth += world[i][2];
     depth /= f.length;
     const lam = Math.max(0, n[0] * LIGHT[0] + n[1] * LIGHT[1] + n[2] * LIGHT[2]);
-    drawList.push({ f, depth, k: 0.30 + 0.85 * lam });
+    drawList.push({ f, depth, k: 0.30 + 0.85 * lam, up: n[1] });
   }
   drawList.sort((p, q) => q.depth - p.depth);
 
   const lw = clamp(opt.edge * view.scaleAt(pos[2]), 0.7, 3.4);   // edge is in metres
+  const haze = clamp((pos[2] - 3) / 30, 0, 1) * (opt.haze ?? 0.42);
   for (const d of drawList){
+    /* face bounds drive a shallow gradient — flat fills read as paper */
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     ctx.beginPath();
-    d.f.forEach((i, k) => k ? ctx.lineTo(screen[i][0], screen[i][1]) : ctx.moveTo(screen[i][0], screen[i][1]));
+    d.f.forEach((i, k) => {
+      const p = screen[i];
+      if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0];
+      if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1];
+      k ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]);
+    });
     ctx.closePath();
-    ctx.fillStyle = shade(opt.color, d.k * opt.light, opt.lift || 0);
+
+    const base = d.k * opt.light;
+    const gr = ctx.createLinearGradient(x0, y0, x1, y1);
+    gr.addColorStop(0, hazed(shadeRGB(opt.color, base * 1.16, opt.lift || 0), haze));
+    gr.addColorStop(1, hazed(shadeRGB(opt.color, base * 0.80, opt.lift || 0), haze));
+    ctx.fillStyle = gr;
     ctx.fill();
+
     if (opt.edgeColor){
-      ctx.strokeStyle = opt.edgeColor;
-      ctx.lineWidth = lw;
+      /* upward-facing edges catch the key light; the rest stay as seams */
+      ctx.strokeStyle = d.up > 0.55 ? opt.edgeColor : rgba("#000000", 0.22 + haze * 0.2);
+      ctx.lineWidth = d.up > 0.55 ? lw : Math.max(0.6, lw * 0.7);
       ctx.lineJoin = "round";
       ctx.stroke();
     }
@@ -778,10 +843,48 @@ function drawMesh(ctx, view, mesh, pos, yaw, pitch, opt){
    the Morning and Night palettes driven by `night` (0..1). */
 class Arena {
   constructor(){
+    this.grain = this.makeGrain();
+    /* The yard only changes with the light level, so it is painted into an
+       offscreen buffer and blitted — the per-frame budget then belongs to the
+       cargo, the rig and the bloom. */
+    this.cache = document.createElement("canvas");
+    this.cctx = this.cache.getContext("2d");
+    this.cachedNight = -1;
     this.t = 0;
     this.wordmark = "TERRAMECH";
   }
   update(dt){ this.t += dt; }
+
+  draw(ctx, view, night, s, dpr){
+    const w = Math.max(1, Math.round(view.W * dpr)), h = Math.max(1, Math.round(view.H * dpr));
+    if (this.cache.width !== w || this.cache.height !== h){
+      this.cache.width = w; this.cache.height = h;
+      this.cachedNight = -1;
+    }
+    if (Math.abs(night - this.cachedNight) > 0.012){
+      const c = this.cctx;
+      c.setTransform(dpr, 0, 0, dpr, 0, 0);
+      c.clearRect(0, 0, view.W, view.H);
+      this.paint(c, view, night, s);
+      this.cachedNight = night;
+    }
+    ctx.drawImage(this.cache, 0, 0, view.W, view.H);
+  }
+
+  /* One 128px noise tile, generated once, used as the deck's tooth. */
+  makeGrain(){
+    const c = document.createElement("canvas");
+    c.width = c.height = 128;
+    const g = c.getContext("2d");
+    const img = g.createImageData(128, 128);
+    for (let i = 0; i < img.data.length; i += 4){
+      const v = 118 + Math.random() * 74;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+      img.data[i + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
+    return c;
+  }
 
   /* Flat-on-the-deck text: horizontal scale from the projection, vertical
      squashed by the ground's foreshortening at that depth. */
@@ -818,7 +921,7 @@ class Arena {
     ctx.globalAlpha = 1;
   }
 
-  draw(ctx, view, night, s){
+  paint(ctx, view, night, s){
     const W = view.W, H = view.H, hw = view.halfW, pw = view.playW;
     const wallX = hw * 1.0;
     const nearZ = -4, farZ = CFG.Z_FAR;
@@ -846,6 +949,34 @@ class Arena {
     ctx.globalCompositeOperation = "lighter";
     ctx.fillStyle = pool;
     this.quad(ctx, view, [[-wallX, 0, nearZ], [wallX, 0, nearZ], [wallX, 0, farZ], [-wallX, 0, farZ]], pool);
+    ctx.restore();
+
+    /* surface tooth + the swept arcs a machine leaves on a working deck */
+    ctx.save();
+    ctx.beginPath();
+    [[-wallX, 0, nearZ], [wallX, 0, nearZ], [wallX, 0, farZ], [-wallX, 0, farZ]]
+      .forEach((p, i) => { const q = view.project(p[0], p[1], p[2]); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); });
+    ctx.closePath();
+    ctx.clip();
+    if (!this._grainPattern) this._grainPattern = ctx.createPattern(this.grain, "repeat");   // cache ctx
+    ctx.globalCompositeOperation = "overlay";
+    ctx.globalAlpha = 0.16;
+    ctx.fillStyle = this._grainPattern;
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 0.055;
+    ctx.strokeStyle = mixHex("#FFF6E2", "#FFD9A0", night);
+    for (let i = 0; i < 9; i++){
+      const zc = 2 + i * 2.6, r = pw * (0.5 + (i % 3) * 0.22);
+      ctx.lineWidth = (1.4 + (i % 2)) * s;
+      ctx.beginPath();
+      for (let k = 0; k <= 20; k++){
+        const a = Math.PI * (0.12 + (k / 20) * 0.76);
+        const q = view.project(Math.cos(a) * r, 0, zc + Math.sin(a) * r * 0.42);
+        k ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]);
+      }
+      ctx.stroke();
+    }
     ctx.restore();
 
     /* survey grid */
@@ -1077,12 +1208,17 @@ class FallingItem {
     const [sx, sy, s] = view.project(this.x, 0, this.z);
     const lift = clamp(this.y / 1.1, 0, 1);
     const r = this.def.r * s * (0.75 + lift * 0.9);
+    const ry = r * (view.camH / (this.z + CFG.CAM_D)) * 1.15;
+    const a = (0.40 - lift * 0.20) * (1 - night * 0.3);
     ctx.save();
-    ctx.globalAlpha = (0.34 - lift * 0.18) * (1 - night * 0.35);
-    ctx.fillStyle = "#05070A";
-    ctx.beginPath();
-    ctx.ellipse(sx, sy, r, r * (view.camH / (this.z + CFG.CAM_D)) * 1.15, 0, 0, TAU);
-    ctx.fill();
+    ctx.translate(sx, sy);
+    ctx.scale(1, ry / r);
+    const sg = ctx.createRadialGradient(0, 0, r * (0.24 - lift * 0.18), 0, 0, r);
+    sg.addColorStop(0, `rgba(6,8,11,${a})`);
+    sg.addColorStop(0.65, `rgba(6,8,11,${a * 0.5})`);
+    sg.addColorStop(1, "rgba(6,8,11,0)");
+    ctx.fillStyle = sg;
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
     ctx.restore();
   }
 
@@ -1096,13 +1232,18 @@ class FallingItem {
     const pts = [[this.x - w, 0.02, CFG.Z_CATCH - d], [this.x + w, 0.02, CFG.Z_CATCH - d],
                  [this.x + w, 0.02, CFG.Z_CATCH + d], [this.x - w, 0.02, CFG.Z_CATCH + d]];
     ctx.save();
-    ctx.globalAlpha = 0.15 + near * 0.55;
-    ctx.strokeStyle = col;
-    ctx.lineWidth = 1.6 * s;
-    ctx.setLineDash([7 * s, 5 * s]);
     ctx.beginPath();
     pts.forEach((p, i) => { const q = view.project(p[0], p[1], p[2]); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); });
-    ctx.closePath(); ctx.stroke();
+    ctx.closePath();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.fillStyle = rgba(col, 0.05 + near * 0.16);
+    ctx.fill();
+    ctx.globalAlpha = 0.2 + near * 0.6;
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 1.5 * s;
+    ctx.setLineDash([9 * s, 6 * s]);
+    ctx.lineDashOffset = -performance.now() * 0.02;
+    ctx.stroke();
     ctx.restore();
   }
 
@@ -1307,6 +1448,7 @@ class Game {
     this.fx = new Particles();
     this.popups = new Popups();
     this.shake = new Shake();
+    this.bloom = new Bloom();
     this.items = [];
     this.time = 0;
     this.best = store.get("tm_best", 0);
@@ -1326,6 +1468,7 @@ class Game {
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     this.s = clamp(this.H / CFG.REF_H, 0.55, 1.6);
     this.view.resize(this.W, this.H);
+    this.bloom.resize(this.W, this.H);
   }
 
   reset(){
@@ -1485,6 +1628,13 @@ class Game {
   /* ----------------------------------------------------------------- tick */
   update(dt){
     this.time += dt;
+    /* Frame budget watchdog — a device that cannot carry the post pass drops
+       it rather than stuttering through the whole shift. */
+    if (this.bloom.ok && this.state === "playing"){
+      this.frameAvg = this.frameAvg ? lerp(this.frameAvg, dt, 0.08) : dt;
+      this.slowFrames = this.frameAvg > 0.028 ? this.slowFrames + 1 : 0;
+      if (this.slowFrames > 150){ this.bloom.ok = false; }
+    }
     this.arena.update(dt);
     this.shake.update(dt);
     this.fx.update(dt, 900 * this.s);
@@ -1571,7 +1721,7 @@ class Game {
     ctx.rotate(this.shake.rot);
     ctx.translate(-W / 2 + this.shake.x, -H / 2 + this.shake.y);
 
-    this.arena.draw(ctx, view, this.night, s);
+    this.arena.draw(ctx, view, this.night, s, this.dpr);
 
     const sorted = this.items.slice().sort((a, b) => b.z - a.z);
     for (const it of sorted) it.drawMarker(ctx, view, s);
@@ -1599,6 +1749,9 @@ class Game {
       g.addColorStop(1, `rgba(224,72,58,${0.5 * this.hitFlash})`);
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     }
+
+    /* bloom last of the world passes, so rails, glow and sparks all bleed */
+    this.bloom.apply(ctx, this.canvas, W, H, 0.17 + this.night * 0.13 + this.catchGlow * 0.10);
 
     this.popups.draw(ctx);
     if (this.state !== "menu") this.drawHUD(ctx, W, H, s);
