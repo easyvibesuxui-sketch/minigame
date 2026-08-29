@@ -88,7 +88,7 @@ body{
   min-height:0;
   border-radius:3px;
   overflow:hidden;
-  background:var(--asphalt);
+  background:#07090c;
   border:1px solid #000;
   box-shadow:inset 0 0 0 1px rgba(244,208,63,.08), inset 0 0 60px rgba(0,0,0,.6);
 }
@@ -220,6 +220,13 @@ kbd{
   box-shadow:inset 0 0 24px rgba(244,208,63,.16);
 }
 .rank-badge .mark svg{width:44px;height:44px}
+.record{
+  display:inline-block;margin:0 0 12px;padding:5px 12px;
+  font-family:var(--font-label);font-weight:700;font-size:13px;
+  letter-spacing:.2em;text-transform:uppercase;
+  color:#17181a;background:var(--hivis);border-radius:2px;
+}
+.record[hidden]{display:none}
 .stats{
   display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));
   gap:1px;background:#33363b;border:1px solid #33363b;border-radius:3px;
@@ -236,13 +243,6 @@ kbd{
 }
 .stats dd.hi{color:var(--hivis)}
 
-.record{
-  display:inline-block;margin:0 0 12px;padding:5px 12px;
-  font-family:var(--font-label);font-weight:700;font-size:13px;
-  letter-spacing:.2em;text-transform:uppercase;
-  color:#17181a;background:var(--hivis);border-radius:2px;
-}
-.record[hidden]{display:none}
 .ladder{list-style:none;margin:0 0 20px;padding:0;display:flex;flex-direction:column;gap:5px}
 .ladder li{
   display:flex;align-items:baseline;gap:10px;
@@ -279,8 +279,9 @@ kbd{
       <div class="plate">
         <p class="eyebrow">TerraMech Heavy Equipment &middot; Operator Trial</p>
         <h1>CATCH &amp;<br><span class="mech">CLEAR</span></h1>
-        <p class="lede">You are on the bucket. Salvage every beam, pipe and plate the hoist drops &mdash;
-          and keep the rig clear of falling hazards. Survive into Night Shift and every load pays double.</p>
+        <p class="lede">You run the bucket at the near end of the yard. The gantry throws steel down
+          the deck toward you &mdash; scoop every load, let nothing hazardous into the rig, and hold
+          the line into Night Shift, where the yard pays double.</p>
 
         <ul class="legend">
           <li>
@@ -293,7 +294,7 @@ kbd{
           </li>
           <li>
             <svg viewBox="0 0 32 32" fill="none" stroke="#5FD3E0" stroke-width="2" stroke-linecap="round"><path d="M10 24V15a6 6 0 0112 0v9"/><path d="M10 24h4v-9M22 24h-4v-9"/></svg>
-            <div><b>Magnet</b><span>Pulls steel to the bucket.</span></div>
+            <div><b>Magnet</b><span>Steers steel into the bucket.</span></div>
           </li>
           <li>
             <svg viewBox="0 0 32 32" fill="none" stroke="#E9EDF0" stroke-width="2" stroke-linejoin="round"><path d="M16 5l10 5v8c0 6-5 8-10 9-5-1-10-3-10-9v-8z"/><path d="M12 16l3 3 6-6"/></svg>
@@ -364,68 +365,71 @@ kbd{
 <script>
 "use strict";
 /* ===========================================================================
-   TERRAMECH — CATCH & CLEAR
+   TERRAMECH — CATCH & CLEAR  ·  perspective yard build
    ---------------------------------------------------------------------------
-   Architecture
-     0. Config + math helpers
-     1. Input      — pointer / touch / keyboard, normalised to one target X
-     2. Audio      — tiny WebAudio synth (no assets)
-     3. FX         — particles, shockwaves, floating text, screen shake
-     4. World      — parallax backdrop that lerps Morning -> Night
-     5. Entities   — Bucket (lerp movement), FallingItem (gravity + spin)
-     6. Game       — spawn director, difficulty phases, combos, power-ups
-     7. HUD + shell— in-canvas instrument panel, DOM screens, ranking
-   All motion is deltaTime-driven; all gameplay distances scale off a
-   720px reference height so the feel is identical at any canvas size.
+   The playfield is a real 3-D scene rendered by hand into a 2-D canvas:
+   world coordinates are metres (x across the deck, y up, z away from camera),
+   every solid is an extruded prism whose faces are culled, depth-sorted and
+   lambert-shaded, and gameplay happens in that same world space. Material is
+   thrown from the far gantry toward the operator; the bucket works the near
+   line. Ground shadows and landing markers give the player depth cues.
+
+     0. Config + math            5. Meshes (prism builder, face renderer)
+     1. Input                    6. Arena (deck, walls, stands, sky)
+     2. Audio                    7. Bucket + FallingItem
+     3. FX (particles/shake)     8. Game (director, phases, combos)
+     4. View (projection)        9. HUD + DOM shell
 =========================================================================== */
 
 /* ---------------------------------------------------------------- 0. CONFIG */
 const CFG = {
-  REF_H: 720,             // design height; everything scales from this
-  GRAVITY: 620,           // px/s^2 at reference scale
-  BUCKET_EASE: 11,        // lerp responsiveness (higher = snappier)
-  BUCKET_W: 132,
-  BUCKET_H: 58,
-  BUCKET_Y: 0.800,        // fraction of canvas height
-  FLOOR_Y: 0.888,         // miss line / top of the deck
-  MOUTH_DEPTH: 34,
+  REF_H: 720,             // HUD design height
+  /* --- camera ---
+     A long lens, high in the stand. Rather than pick a height and hope, the
+     view solves for the camera that puts the catch line and the far gantry on
+     exactly these screen fractions — so the yard composes the same way at any
+     aspect ratio, and the horizon sits far above the frame. */
+  CAM_D: 26,              // metres between camera and catch line
+  NEAR_Y: 0.90,           // catch line, as a fraction of canvas height
+  FAR_Y: 0.13,            // far gantry, same
+  /* --- yard --- */
+  Z_FAR: 24,              // far gantry
+  Z_SPAWN: 23,            // where material enters
+  Z_CATCH: 0.6,           // the bucket's line
+  WALL_H: 2.15,
+  /* --- rig --- */
+  BUCKET_W: 2.55,         // metres
+  BUCKET_D: 1.10,
+  BUCKET_EASE: 11,
   LIVES: 3,
-  COMBO_WINDOW: 2.4,      // seconds before a streak decays
+  /* --- motion --- */
+  THROW_V: 4.3,           // initial approach speed (m/s)
+  THROW_A: 5.0,           // approach acceleration (m/s^2)
+  /* --- rules --- */
+  COMBO_WINDOW: 2.4,
   COMBO_MAX_MULT: 8,
-  POWER_TIME: 5,          // seconds — both power-ups
-  MAGNET_RADIUS: 260,
-  MAGNET_PULL: 1500,
-  DUSK_CATCH: 14,         // materials salvaged before the light starts to turn
-  NIGHT_CATCH: 30,        // materials salvaged for a full Night Shift
-  DUSK_SCORE: 3000,       // ...or reach these scores, whichever lands first
+  POWER_TIME: 5,
+  MAGNET_RANGE: 9,        // metres of approach over which the field bites
+  MAGNET_PULL: 7.5,
+  DUSK_CATCH: 14,
+  NIGHT_CATCH: 30,
+  DUSK_SCORE: 3000,
   NIGHT_SCORE: 8000,
-  SPAWN_START: 1.05,      // seconds between drops at shift start
-  SPAWN_FLOOR: 0.34,      // fastest the hoist ever drops
+  SPAWN_START: 1.15,
+  SPAWN_FLOOR: 0.38,
 };
 
 const RANKS = [
-  { name:"Rookie",         sub:"Operator grade 1", at:0,    line:"Hard hat on, hands steady." },
-  { name:"Site Foreman",   sub:"Operator grade 2", at:2500, line:"Runs a clean deck." },
-  { name:"Chief Engineer", sub:"Operator grade 3", at:7000, line:"Reads the drop before it falls." },
+  { name:"Rookie",           sub:"Operator grade 1", at:0,     line:"Hard hat on, hands steady." },
+  { name:"Site Foreman",     sub:"Operator grade 2", at:2500,  line:"Runs a clean deck." },
+  { name:"Chief Engineer",   sub:"Operator grade 3", at:7000,  line:"Reads the throw before it lands." },
   { name:"TerraMech Master", sub:"Certified legend", at:14000, line:"The bucket is an extension of the arm." },
 ];
 
 const PALETTE = {
   hivis:"#F4D03F", hivisDeep:"#C9A722", asphalt:"#1C1E21",
   hazard:"#E0483A", coolant:"#5FD3E0", paper:"#E9EDF0",
-  concrete:"#6E7066",
-};
-
-/* Item catalogue. `value` is Morning-shift points; Night doubles it. */
-const ITEMS = {
-  beam:   { kind:"material", value:100, r:30, weight:34, color:PALETTE.hivis },
-  pipe:   { kind:"material", value:75,  r:26, weight:26, color:PALETTE.hivis },
-  plate:  { kind:"material", value:160, r:27, weight:12, color:"#FFE58A" },
-  crate:  { kind:"material", value:60,  r:28, weight:18, color:PALETTE.hivis },
-  drum:   { kind:"hazard",   value:0,   r:30, weight:0,  color:PALETTE.hazard },
-  rubble: { kind:"hazard",   value:0,   r:27, weight:0,  color:PALETTE.hazard },
-  magnet: { kind:"power",    value:0,   r:26, weight:0,  color:PALETTE.coolant, power:"magnet" },
-  titan:  { kind:"power",    value:0,   r:26, weight:0,  color:PALETTE.paper,  power:"titanium" },
+  concrete:"#6E7066", steel:"#8C9299",
 };
 
 const STREAKS = [
@@ -442,20 +446,24 @@ const TAU = Math.PI * 2;
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const lerp  = (a, b, t) => a + (b - a) * t;
 const rand  = (a, b) => a + Math.random() * (b - a);
-const randInt = (a, b) => Math.floor(rand(a, b + 1));
-const pick  = arr => arr[Math.floor(Math.random() * arr.length)];
 const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
 const easeOutBack  = t => 1 + 2.7 * Math.pow(t - 1, 3) + 1.7 * Math.pow(t - 1, 2);
-/* Frame-rate independent exponential smoothing — the honest way to lerp. */
+/* Frame-rate independent exponential smoothing. */
 const damp = (a, b, rate, dt) => lerp(a, b, 1 - Math.exp(-rate * dt));
 
+const hexRGB = h => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
 function mixHex(a, b, t){
-  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
-  const r = Math.round(lerp((pa >> 16) & 255, (pb >> 16) & 255, t));
-  const g = Math.round(lerp((pa >> 8) & 255, (pb >> 8) & 255, t));
-  const bl = Math.round(lerp(pa & 255, pb & 255, t));
-  return `rgb(${r},${g},${bl})`;
+  const pa = hexRGB(a), pb = hexRGB(b);
+  return `rgb(${Math.round(lerp(pa[0], pb[0], t))},${Math.round(lerp(pa[1], pb[1], t))},${Math.round(lerp(pa[2], pb[2], t))})`;
 }
+/* Multiply a colour by a lambert term, with an optional lift toward white. */
+function shade(hex, k, lift = 0){
+  const c = hexRGB(hex);
+  const f = v => Math.round(clamp(v * k + 255 * lift, 0, 255));
+  return `rgb(${f(c[0])},${f(c[1])},${f(c[2])})`;
+}
+const rgba = (hex, a) => { const c = hexRGB(hex); return `rgba(${c[0]},${c[1]},${c[2]},${a})`; };
+
 function rrect(ctx, x, y, w, h, r){
   r = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
   ctx.beginPath();
@@ -464,11 +472,6 @@ function rrect(ctx, x, y, w, h, r){
   ctx.arcTo(x + w, y + h, x, y + h, r);
   ctx.arcTo(x, y + h, x, y, r);
   ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-}
-function poly(ctx, pts){
-  ctx.beginPath();
-  pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]));
   ctx.closePath();
 }
 const store = {
@@ -494,9 +497,8 @@ const Input = {
       if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") { Input.keyRight = true; Input.active = false; }
       if (e.key === "p" || e.key === "P") game.togglePause();
       if (e.key === "m" || e.key === "M") Shell.toggleSound();
-      if (e.code === "Space" || e.key === "Enter") {
-        if (game.state === "menu") { e.preventDefault(); Shell.start(); }
-        else if (game.state === "over") { e.preventDefault(); Shell.start(); }
+      if (e.code === "Space" || e.key === "Enter"){
+        if (game.state === "menu" || game.state === "over"){ e.preventDefault(); Shell.start(); }
       }
     });
     window.addEventListener("keyup", e => {
@@ -507,8 +509,6 @@ const Input = {
 };
 
 /* ----------------------------------------------------------------- 2. AUDIO */
-/* Six-oscillator toy synth. Built lazily on the first gesture so no autoplay
-   policy is ever tripped, and every voice is short enough to stay punchy. */
 const Audio_ = {
   ctx:null, on: store.get("tm_sound", true), master:null,
   init(){
@@ -535,11 +535,11 @@ const Audio_ = {
     const buf = this.ctx.createBuffer(1, n, this.ctx.sampleRate);
     const d = buf.getChannelData(0);
     for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
-    const s = this.ctx.createBufferSource(); s.buffer = buf;
+    const src = this.ctx.createBufferSource(); src.buffer = buf;
     const f = this.ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 900;
     const g = this.ctx.createGain(); g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    s.connect(f); f.connect(g); g.connect(this.master); s.start(t);
+    src.connect(f); f.connect(g); g.connect(this.master); src.start(t);
   },
   catch_(combo){ this.blip(300 + Math.min(combo, 16) * 42, 0.08, "square", 0.34, 120); },
   bonus(){ [0, 90, 180].forEach((d, i) => setTimeout(() => this.blip(520 + i * 220, 0.1, "triangle", 0.3), d)); },
@@ -551,10 +551,11 @@ const Audio_ = {
 };
 
 /* -------------------------------------------------------------------- 3. FX */
+/* Particles and popups live in screen space — they are camera-facing anyway —
+   but are spawned at projected positions and scaled by the depth factor. */
 class Particles {
   constructor(){ this.list = []; }
   clear(){ this.list.length = 0; }
-  /* Directional sparks: short bright streaks that inherit velocity. */
   sparks(x, y, count, color, spread = TAU, dir = -Math.PI / 2, speed = 260){
     if (REDUCED) count = Math.ceil(count / 2);
     for (let i = 0; i < count; i++){
@@ -563,22 +564,21 @@ class Particles {
         life:rand(0.28, 0.62), age:0, color, w:rand(1.2, 2.6) });
     }
   }
-  /* Chunky debris with spin — used for hazard blasts. */
-  debris(x, y, count, color){
+  debris(x, y, count, color, scale = 1){
     if (REDUCED) count = Math.ceil(count / 2);
     for (let i = 0; i < count; i++){
-      const a = rand(0, TAU), s = rand(60, 380);
-      this.list.push({ t:"debris", x, y, vx:Math.cos(a) * s, vy:Math.sin(a) * s - 60,
-        life:rand(0.4, 0.9), age:0, color, size:rand(3, 8), rot:rand(0, TAU), spin:rand(-9, 9) });
+      const a = rand(0, TAU), s = rand(60, 380) * scale;
+      this.list.push({ t:"debris", x, y, vx:Math.cos(a) * s, vy:Math.sin(a) * s - 60 * scale,
+        life:rand(0.4, 0.9), age:0, color, size:rand(3, 8) * scale, rot:rand(0, TAU), spin:rand(-9, 9) });
     }
   }
   ring(x, y, color, max = 90, width = 3){
     this.list.push({ t:"ring", x, y, life:0.42, age:0, color, max, width });
   }
-  dust(x, y, color){
-    for (let i = 0; i < (REDUCED ? 3 : 7); i++){
-      this.list.push({ t:"dust", x:x + rand(-14, 14), y, vx:rand(-70, 70), vy:rand(-90, -20),
-        life:rand(0.4, 0.8), age:0, color, size:rand(4, 12) });
+  dust(x, y, color, scale = 1){
+    for (let i = 0; i < (REDUCED ? 3 : 8); i++){
+      this.list.push({ t:"dust", x:x + rand(-14, 14) * scale, y, vx:rand(-70, 70) * scale,
+        vy:rand(-90, -20) * scale, life:rand(0.4, 0.8), age:0, color, size:rand(4, 12) * scale });
     }
   }
   update(dt, g){
@@ -619,7 +619,7 @@ class Particles {
       } else if (p.t === "dust"){
         ctx.globalAlpha = k * 0.35;
         ctx.fillStyle = p.color;
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (1 + (1 - k)), 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (2 - k), 0, TAU); ctx.fill();
       }
     }
     ctx.globalAlpha = 1;
@@ -652,7 +652,7 @@ class Popups {
       ctx.scale(pop, pop);
       ctx.font = `${p.weight} ${p.size}px "Chakra Petch", ui-sans-serif, sans-serif`;
       ctx.lineWidth = 5; ctx.lineJoin = "round";
-      ctx.strokeStyle = "rgba(12,13,15,.85)";
+      ctx.strokeStyle = "rgba(8,10,12,.9)";
       ctx.strokeText(p.text, 0, 0);
       ctx.fillStyle = p.color;
       ctx.fillText(p.text, 0, 0);
@@ -673,495 +673,636 @@ class Shake {
   }
 }
 
-/* ------------------------------------------------------- 4. PARALLAX WORLD */
-/* Three vector-outline layers drift at different rates; every colour is a
-   lerp between the Morning and Night palettes driven by `night` (0..1). */
-class Backdrop {
-  constructor(){
-    this.scroll = [0, 0, 0];
-    this.rate = [7, 17, 34];       // px/s at reference scale
-    this.stars = Array.from({ length: 70 }, () => ({
-      x: Math.random(), y: Math.random() * 0.55, r: rand(0.6, 1.7), tw: rand(0, TAU),
-    }));
-    this.cranes = Array.from({ length: 5 }, (_, i) => ({
-      x: i * 0.27 + rand(-0.04, 0.04), h: rand(0.34, 0.62), arm: rand(0.14, 0.24), flip: Math.random() < 0.5,
-    }));
-    this.t = 0;
+/* ------------------------------------------------------- 4. VIEW/PROJECTION */
+/* Pin-hole camera sitting at (0, CAM_H, -CAM_D) looking straight down the yard.
+   Ground (y = 0) converges on the horizon; scale falls off as 1/depth. */
+class View {
+  resize(W, H){
+    this.W = W; this.H = H;
+    const D = CFG.CAM_D, Zf = CFG.Z_FAR;
+    /* Ground projects as horizon + K/(z+D). Two screen anchors fix K and the
+       horizon; the yard's width then fixes the focal length, and the camera
+       height falls out of K/f. */
+    this.K = (H * CFG.NEAR_Y - H * CFG.FAR_Y) / (1 / D - 1 / (Zf + D));
+    this.horizon = H * CFG.NEAR_Y - this.K / D;
+    this.halfW = clamp((W / H) * 4.6, 3.4, 6.8);      // yard half-width, metres
+    this.f = (W * 0.5) * (D + CFG.Z_CATCH) / this.halfW;
+    this.camH = this.K / this.f;
+    this.playW = this.halfW * 0.84;                   // usable deck inside the walls
   }
-  update(dt, s){
-    this.t += dt;
-    for (let i = 0; i < 3; i++) this.scroll[i] = (this.scroll[i] + this.rate[i] * s * dt) % 100000;
+  /* returns [screenX, screenY, pixelsPerMetre] */
+  project(x, y, z){
+    const s = this.f / (z + CFG.CAM_D);
+    return [this.W / 2 + x * s, this.horizon + (this.camH - y) * s, s];
   }
-  draw(ctx, W, H, night, s){
-    const deckY = H * CFG.FLOOR_Y;
+  scaleAt(z){ return this.f / (z + CFG.CAM_D); }
+}
 
-    /* --- sky: hazy warm dawn -> deep industrial night ------------------- */
-    const sky = ctx.createLinearGradient(0, 0, 0, deckY);
-    sky.addColorStop(0,    mixHex("#4C6F91", "#070B14", night));
-    sky.addColorStop(0.42, mixHex("#8FA3AD", "#0D1421", night));
-    sky.addColorStop(0.78, mixHex("#C6B48C", "#131B29", night));
-    sky.addColorStop(1,    mixHex("#E0C892", "#161E2C", night));
-    ctx.fillStyle = sky;
+/* ---------------------------------------------------------------- 5. MESHES */
+/* Every solid in the yard is a convex prism: an n-gon swept along an axis.
+   Faces carry their own normals so they can be culled and lambert-shaded. */
+function makePrism(sides, radius, length, axis = "y", twist = 0){
+  const verts = [], faces = [];
+  const h = length / 2;
+  for (let cap = 0; cap < 2; cap++){
+    for (let i = 0; i < sides; i++){
+      const a = (i / sides) * TAU + twist;
+      const c = Math.cos(a) * radius, s = Math.sin(a) * radius;
+      const d = cap ? h : -h;
+      if (axis === "y")      verts.push([c, d, s]);
+      else if (axis === "x") verts.push([d, c, s]);
+      else                   verts.push([c, s, d]);
+    }
+  }
+  for (let i = 0; i < sides; i++){
+    const j = (i + 1) % sides;
+    faces.push([i, j, j + sides, i + sides]);
+  }
+  faces.push(Array.from({ length: sides }, (_, i) => sides + i));            // far cap
+  faces.push(Array.from({ length: sides }, (_, i) => sides - 1 - i));        // near cap
+  return { verts, faces };
+}
+
+const LIGHT = (() => { const v = [-0.34, 0.86, -0.38]; const m = Math.hypot(...v); return v.map(c => c / m); })();
+
+/* Transform → cull → depth-sort → paint. One prism costs a handful of fills. */
+function drawMesh(ctx, view, mesh, pos, yaw, pitch, opt){
+  const cy = Math.cos(yaw), sy = Math.sin(yaw);
+  const cp = Math.cos(pitch), sp = Math.sin(pitch);
+  const world = mesh.verts.map(v => {
+    let [x, y, z] = v;
+    let x1 = x * cy + z * sy, z1 = -x * sy + z * cy;   // yaw about Y
+    let y1 = y * cp - z1 * sp; z1 = y * sp + z1 * cp;  // pitch about X
+    return [x1 + pos[0], y1 + pos[1], z1 + pos[2]];
+  });
+  const screen = world.map(v => view.project(v[0], v[1], v[2]));
+  const cam = [0, view.camH, -CFG.CAM_D];
+
+  const drawList = [];
+  for (const f of mesh.faces){
+    const a = world[f[0]], b = world[f[1]], c = world[f[2]];
+    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+    const v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+    const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+    const nm = Math.hypot(...n) || 1;
+    n[0] /= nm; n[1] /= nm; n[2] /= nm;
+    const view0 = [a[0] - cam[0], a[1] - cam[1], a[2] - cam[2]];
+    if (n[0] * view0[0] + n[1] * view0[1] + n[2] * view0[2] > 0) continue;   // back face
+    let depth = 0;
+    for (const i of f) depth += world[i][2];
+    depth /= f.length;
+    const lam = Math.max(0, n[0] * LIGHT[0] + n[1] * LIGHT[1] + n[2] * LIGHT[2]);
+    drawList.push({ f, depth, k: 0.30 + 0.85 * lam });
+  }
+  drawList.sort((p, q) => q.depth - p.depth);
+
+  const lw = clamp(opt.edge * view.scaleAt(pos[2]), 0.7, 3.4);   // edge is in metres
+  for (const d of drawList){
+    ctx.beginPath();
+    d.f.forEach((i, k) => k ? ctx.lineTo(screen[i][0], screen[i][1]) : ctx.moveTo(screen[i][0], screen[i][1]));
+    ctx.closePath();
+    ctx.fillStyle = shade(opt.color, d.k * opt.light, opt.lift || 0);
+    ctx.fill();
+    if (opt.edgeColor){
+      ctx.strokeStyle = opt.edgeColor;
+      ctx.lineWidth = lw;
+      ctx.lineJoin = "round";
+      ctx.stroke();
+    }
+  }
+}
+
+/* ----------------------------------------------------------------- 6. ARENA */
+/* The yard itself: sky, deck, converging side walls with neon rails and
+   signage, tiered stands, and the far gantry. Every colour is a lerp between
+   the Morning and Night palettes driven by `night` (0..1). */
+class Arena {
+  constructor(){
+    this.t = 0;
+    this.wordmark = "TERRAMECH";
+  }
+  update(dt){ this.t += dt; }
+
+  /* Flat-on-the-deck text: horizontal scale from the projection, vertical
+     squashed by the ground's foreshortening at that depth. */
+  groundText(ctx, view, text, z, size, color, alpha){
+    const [sx, sy, s] = view.project(0, 0, z);
+    const squash = view.camH / (z + CFG.CAM_D);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(sx, sy);
+    ctx.scale(1, squash);
+    ctx.font = `700 ${size * s}px "Chakra Petch", sans-serif`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillStyle = color;
+    ctx.fillText(text, 0, 0);
+    ctx.restore();
+  }
+
+  /* A quad in world space, projected. */
+  quad(ctx, view, pts, fill, stroke, lw){
+    ctx.beginPath();
+    pts.forEach((p, i) => {
+      const [x, y] = view.project(p[0], p[1], p[2]);
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    });
+    ctx.closePath();
+    if (fill){ ctx.fillStyle = fill; ctx.fill(); }
+    if (stroke){ ctx.strokeStyle = stroke; ctx.lineWidth = lw || 1; ctx.stroke(); }
+  }
+  line(ctx, view, a, b, color, lw, alpha = 1){
+    const p = view.project(a[0], a[1], a[2]), q = view.project(b[0], b[1], b[2]);
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = color; ctx.lineWidth = lw;
+    ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  draw(ctx, view, night, s){
+    const W = view.W, H = view.H, hw = view.halfW, pw = view.playW;
+    const wallX = hw * 1.0;
+    const nearZ = -4, farZ = CFG.Z_FAR;
+
+    /* The horizon sits far above the frame, so there is no sky: the far
+       structure closes the top of the picture the way a stand does. */
+    ctx.fillStyle = mixHex("#15181C", "#080604", night);
     ctx.fillRect(0, 0, W, H);
 
-    /* --- sun / moon ------------------------------------------------------ */
-    const bodyX = W * (0.16 + night * 0.68);
-    const bodyY = H * (0.30 - Math.sin(night * Math.PI) * 0.10);
-    const bodyR = H * 0.038;
-    const glow = ctx.createRadialGradient(bodyX, bodyY, 0, bodyX, bodyY, H * 0.5);
-    glow.addColorStop(0, night < 0.5
-      ? `rgba(255,214,120,${0.34 * (1 - night * 1.5)})`
-      : `rgba(150,190,235,${0.13 * night})`);
-    glow.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
-    ctx.globalAlpha = 0.9;
-    ctx.fillStyle = mixHex("#FFE9A8", "#C6D3E4", night);
-    ctx.beginPath(); ctx.arc(bodyX, bodyY, bodyR, 0, TAU); ctx.fill();
-    /* a bite out of the disc turns the sun into a moon as the shift turns */
-    if (night > 0.35){
-      ctx.globalAlpha = (night - 0.35) / 0.65;
-      ctx.fillStyle = mixHex("#8FA3AD", "#0A0F1A", night);
-      ctx.beginPath(); ctx.arc(bodyX + bodyR * 0.52, bodyY - bodyR * 0.3, bodyR * 0.92, 0, TAU); ctx.fill();
-    }
-    ctx.globalAlpha = 1;
+    /* --- deck ------------------------------------------------------------ */
+    const [, nearY] = view.project(0, 0, nearZ);
+    const [, farY]  = view.project(0, 0, farZ);
+    const g = ctx.createLinearGradient(0, farY, 0, nearY);
+    g.addColorStop(0, mixHex("#6B5C48", "#3A2B1C", night));
+    g.addColorStop(0.55, mixHex("#4C4335", "#281E14", night));
+    g.addColorStop(1, mixHex("#2A251E", "#14100C", night));
+    this.quad(ctx, view, [[-wallX, 0, nearZ], [wallX, 0, nearZ], [wallX, 0, farZ], [-wallX, 0, farZ]], g);
 
-    /* --- stars (night only) --------------------------------------------- */
-    if (night > 0.15){
-      ctx.fillStyle = "#DCE6F2";
-      for (const st of this.stars){
-        ctx.globalAlpha = (night - 0.15) * (0.45 + 0.55 * Math.abs(Math.sin(this.t * 1.4 + st.tw)));
-        ctx.beginPath(); ctx.arc(st.x * W, st.y * H, st.r, 0, TAU); ctx.fill();
-      }
-      ctx.globalAlpha = 1;
+    /* work light pooled over the yard, so the deck reads brighter than the rim */
+    const [lx0, ly0] = view.project(0, 0, 9);
+    const pool = ctx.createRadialGradient(lx0, ly0, 0, lx0, ly0, H * 0.75);
+    pool.addColorStop(0, `rgba(255,232,176,${0.11 - night * 0.03})`);
+    pool.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.fillStyle = pool;
+    this.quad(ctx, view, [[-wallX, 0, nearZ], [wallX, 0, nearZ], [wallX, 0, farZ], [-wallX, 0, farZ]], pool);
+    ctx.restore();
+
+    /* survey grid */
+    const gridCol = mixHex("#9C8F76", "#6A5232", night);
+    for (let i = -4; i <= 4; i++){
+      this.line(ctx, view, [(pw / 4) * i, 0, nearZ], [(pw / 4) * i, 0, farZ], gridCol, 1, 0.16);
+    }
+    for (let z = 0; z <= farZ; z += 2){
+      this.line(ctx, view, [-wallX, 0, z], [wallX, 0, z], gridCol, 1, 0.13);
     }
 
-    ctx.lineJoin = "round"; ctx.lineCap = "round";
+    /* the worked strip is lighter than the rim, like a swept court */
+    ctx.save();
+    ctx.globalAlpha = 0.16;
+    this.quad(ctx, view, [[-pw, 0, nearZ], [pw, 0, nearZ], [pw, 0, farZ - 0.5], [-pw, 0, farZ - 0.5]],
+      mixHex("#C8A87A", "#8A5A2A", night));
+    ctx.restore();
 
-    /* --- layer 1: distant tower cranes ----------------------------------- */
-    ctx.strokeStyle = mixHex("#3F5163", "#243046", night);
-    ctx.lineWidth = 2 * s; ctx.globalAlpha = 0.5;
-    const span1 = W * 1.4, off1 = -(this.scroll[0] * s) % span1;
-    for (let rep = -1; rep <= 1; rep++){
-      for (const c of this.cranes){
-        const x = off1 + rep * span1 + c.x * span1;
-        if (x < -W * 0.35 || x > W * 1.35) continue;
-        this.crane(ctx, x, deckY * 0.94, H * c.h, W * c.arm, c.flip, s);
-      }
+    /* painted markings + stencilled yard mark */
+    const paint = mixHex("#F2EFE6", "#E8D8B4", night * 0.55);
+    this.line(ctx, view, [-pw, 0, nearZ], [-pw, 0, farZ], paint, 2.2 * s, 0.45);
+    this.line(ctx, view, [pw, 0, nearZ], [pw, 0, farZ], paint, 2.2 * s, 0.45);
+    this.line(ctx, view, [-pw, 0, 13], [pw, 0, 13], paint, 2 * s, 0.28);
+    this.groundText(ctx, view, this.wordmark, 8.5, pw * 0.26, paint, 0.09);
+    this.groundText(ctx, view, "LOADING YARD 07", 14.5, pw * 0.10, paint, 0.11);
+
+    /* --- far structure: closes the top of the frame ----------------------- */
+    const farWallH = 3.4;
+    const fg = ctx.createLinearGradient(0, view.project(0, farWallH, farZ)[1], 0, farY);
+    fg.addColorStop(0, mixHex("#171B21", "#0A0806", night));
+    fg.addColorStop(1, mixHex("#2A3038", "#181109", night));
+    this.quad(ctx, view, [[-hw * 3, 0, farZ], [-hw * 3, farWallH, farZ],
+                          [hw * 3, farWallH, farZ], [hw * 3, 0, farZ]], fg);
+    /* service bays along the base of the far wall */
+    for (let i = -4; i <= 4; i++){
+      const x = i * (pw / 2.6);
+      this.quad(ctx, view, [[x - pw * 0.16, 0, farZ - 0.02], [x - pw * 0.16, 0.62, farZ - 0.02],
+                            [x + pw * 0.16, 0.62, farZ - 0.02], [x + pw * 0.16, 0, farZ - 0.02]],
+                mixHex("#20252C", "#100B07", night));
+    }
+    /* hazard chevron rail across the gantry face */
+    for (let i = -9; i <= 9; i++){
+      const x = i * (pw / 5.2);
+      ctx.save();
+      ctx.globalAlpha = 0.5;
+      this.quad(ctx, view, [[x, 0.72, farZ - 0.03], [x + pw * 0.08, 1.02, farZ - 0.03],
+                            [x + pw * 0.16, 1.02, farZ - 0.03], [x + pw * 0.08, 0.72, farZ - 0.03]],
+                i % 2 ? mixHex("#F4D03F", "#B08F1C", night * 0.5) : mixHex("#22262B", "#0B0F16", night));
+      ctx.restore();
+    }
+    /* gantry beam + brand sign */
+    this.quad(ctx, view, [[-hw * 3, 1.12, farZ - 0.05], [-hw * 3, 1.30, farZ - 0.05],
+                          [hw * 3, 1.30, farZ - 0.05], [hw * 3, 1.12, farZ - 0.05]],
+              mixHex("#454C55", "#2A2015", night));
+    ctx.save();
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    if (!REDUCED){ ctx.shadowColor = PALETTE.hivis; ctx.shadowBlur = (8 + night * 22) * s; }
+    /* on a narrow canvas the HUD owns this band, so the gantry stays unlettered */
+    if (W < 660){ ctx.restore(); } else {
+    ctx.fillStyle = mixHex("#D8C264", "#F4D03F", night);
+    for (const [label, ox, size] of [["TERRAMECH", -pw * 0.62, 0.44], ["YARD 07", pw * 0.66, 0.36]]){
+      const [gx, gy, gs] = view.project(ox, 1.60, farZ - 0.06);
+      ctx.font = `700 ${size * gs}px "Chakra Petch", sans-serif`;
+      ctx.fillText(label, gx, gy);
+    }
+    ctx.restore();
     }
 
-    /* --- layer 2: girder lattice / scaffold ------------------------------- */
-    ctx.globalAlpha = 0.4; ctx.lineWidth = 2.2 * s;
-    ctx.strokeStyle = mixHex("#4A5245", "#2C3A52", night);
-    const cell = 110 * s, off2 = -(this.scroll[1] * s) % (cell * 2);
-    const topY = H * 0.545, botY = H * 0.665;
-    ctx.beginPath();
-    ctx.moveTo(0, topY); ctx.lineTo(W, topY);
-    ctx.moveTo(0, botY); ctx.lineTo(W, botY);
-    for (let x = off2 - cell * 2; x < W + cell * 2; x += cell){
-      ctx.moveTo(x, topY); ctx.lineTo(x, botY);
-      ctx.moveTo(x, botY); ctx.lineTo(x + cell, topY);
-    }
-    ctx.stroke();
-
-    /* --- layer 3: near skyline + work lights ------------------------------ */
-    ctx.globalAlpha = 1;
-    const nearFill = mixHex("#3C4038", "#0B1018", night);
-    const nearLine = mixHex("#575C4E", "#1D2838", night);
-    const bw = 150 * s, off3 = -(this.scroll[2] * s) % (bw * 3);
-    const hs = clamp(W / 1000, 0.55, 1);
-    ctx.lineWidth = 2 * s;
-    for (let i = -2; i < W / bw + 2; i++){
-      const x = off3 + i * bw;
-      const mod3 = ((i % 3) + 3) % 3, mod5 = ((i % 5) + 5) % 5;
-      const h = (48 + mod3 * 34 + mod5 * 11) * s * hs;
-      const top = deckY - h;
-      ctx.fillStyle = nearFill; ctx.strokeStyle = nearLine;
-      ctx.beginPath(); ctx.rect(x, top, bw - 16 * s, h);
-      ctx.fill(); ctx.stroke();
-      /* rooftop plant: vent box, mast, and a red aircraft light at night */
-      ctx.beginPath();
-      ctx.rect(x + 16 * s, top - 13 * s, 34 * s, 13 * s);
-      ctx.fill(); ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(x + bw - 44 * s, top); ctx.lineTo(x + bw - 44 * s, top - (18 + mod3 * 9) * s);
-      ctx.stroke();
-      if (mod5 === 2){
-        ctx.fillStyle = `rgba(224,72,58,${0.35 + 0.5 * Math.abs(Math.sin(this.t * 2.2 + i))})`;
-        ctx.beginPath(); ctx.arc(x + bw - 44 * s, top - (18 + mod3 * 9) * s, 2.6 * s, 0, TAU); ctx.fill();
-      }
-      if (night > 0.22){
-        ctx.fillStyle = `rgba(244,208,63,${0.12 + night * 0.45})`;
-        for (let wy = top + 18 * s; wy < deckY - 20 * s; wy += 28 * s){
-          for (let wx = x + 15 * s; wx < x + bw - 34 * s; wx += 31 * s){
-            if (((wx + wy) | 0) % 7 < 3) ctx.fillRect(wx, wy, 11 * s, 13 * s);
-          }
+    /* --- tiered stands, outside and above the side walls ------------------ */
+    for (const sgn of [-1, 1]){
+      for (let row = 0; row < 5; row++){
+        const rx = wallX + 0.5 + row * 0.78;
+        const y0 = CFG.WALL_H + row * 0.58;
+        const band = shade(row % 2 ? "#26332D" : "#1F2A25", lerp(1, 0.4, night));
+        this.quad(ctx, view, [[sgn * rx, y0, nearZ], [sgn * rx, y0 + 0.4, nearZ],
+                              [sgn * rx, y0 + 0.4, farZ], [sgn * rx, y0, farZ]], band);
+        /* seat ticks — enough texture to read as a crowd, not as noise */
+        const seat = mixHex("#37503F", "#1B2019", night);
+        for (let z = 0.5; z < farZ; z += 0.85){
+          const [px, py, ps] = view.project(sgn * rx, y0 + 0.34, z);
+          if (py < -30 || py > H + 30) continue;
+          ctx.fillStyle = seat;
+          ctx.fillRect(px - 0.24 * ps, py, 0.48 * ps, 0.26 * ps);
         }
       }
     }
 
-    /* --- deck: the operator's ground plane -------------------------------- */
-    ctx.fillStyle = mixHex("#26281F", "#080B11", night);
-    ctx.fillRect(0, deckY, W, H - deckY);
-    /* tread chevrons scrolling with the near layer keep the deck alive */
-    ctx.strokeStyle = mixHex("#F4D03F", "#7A6720", 0.35 + night * 0.45);
-    ctx.globalAlpha = 0.1; ctx.lineWidth = 2 * s;
-    const cs = 34 * s, coff = -(this.scroll[2] * s * 1.6) % (cs * 2);
-    const cTop = deckY + (H - deckY) * 0.42, cBot = deckY + (H - deckY) * 0.86;
-    ctx.beginPath();
-    for (let x = coff - cs * 2; x < W + cs * 2; x += cs * 1.8){
-      ctx.moveTo(x, cBot);
-      ctx.lineTo(x + cs * 0.5, cTop);
-      ctx.lineTo(x + cs, cBot);
-    }
-    ctx.stroke();
-    ctx.globalAlpha = 1;
+    /* --- side walls ------------------------------------------------------- */
+    for (const sgn of [-1, 1]){
+      const wg = ctx.createLinearGradient(0, view.project(0, CFG.WALL_H, 6)[1], 0, view.project(0, 0, 6)[1]);
+      wg.addColorStop(0, mixHex("#1D2229", "#0B0805", night));
+      wg.addColorStop(1, mixHex("#333B45", "#1E1610", night));
+      this.quad(ctx, view, [[sgn * wallX, 0, nearZ], [sgn * wallX, CFG.WALL_H, nearZ],
+                            [sgn * wallX, CFG.WALL_H, farZ], [sgn * wallX, 0, farZ]], wg);
 
-    /* night floodlight cones sweeping the deck */
-    if (night > 0.2){
-      for (let i = 0; i < 2; i++){
-        const cx = W * (0.22 + i * 0.56) + Math.sin(this.t * 0.35 + i * 2) * W * 0.08;
-        const gl = ctx.createRadialGradient(cx, H * 0.42, 0, cx, H * 0.42, H * 0.5);
-        gl.addColorStop(0, `rgba(244,208,63,${0.075 * night})`);
-        gl.addColorStop(1, "rgba(244,208,63,0)");
-        ctx.fillStyle = gl; ctx.fillRect(0, 0, W, H);
+      /* banner boards, one word per bay so the type recedes cleanly */
+      ctx.save();
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      for (let bay = 0; bay < 5; bay++){
+        const z = 4.2 + bay * 4.4;
+        if (z > farZ - 1.5) break;
+        const [px, py, ps] = view.project(sgn * wallX, CFG.WALL_H * 0.42, z);
+        if (ps > view.scaleAt(3)) continue;
+        ctx.globalAlpha = 0.20 + night * 0.14;
+        ctx.fillStyle = mixHex("#C9CFD6", "#8FA0BA", night);
+        ctx.font = `700 ${0.55 * ps}px "Chakra Petch", sans-serif`;
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.scale(0.42, 1);           // foreshortened across the wall's length
+        ctx.fillText("TERRAMECH", 0, 0);
+        ctx.restore();
       }
+      ctx.restore();
+
+      /* neon rails — the signature of the yard, brighter after dark */
+      const railGlow = 0.45 + night * 0.55;
+      const rails = [
+        { y:CFG.WALL_H * 0.10, c:PALETTE.hivis, w:2.4 },
+        { y:CFG.WALL_H * 0.86, c:"#FFB33C",     w:2.0 },
+        { y:CFG.WALL_H * 0.99, c:PALETTE.hivis, w:1.4 },
+      ];
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      for (const r of rails){
+        for (let pass = 0; pass < 2; pass++){
+          this.line(ctx, view, [sgn * wallX, r.y, nearZ], [sgn * wallX, r.y, farZ],
+            r.c, (pass ? r.w * 3.6 : r.w) * s, (pass ? 0.09 : 0.8) * railGlow);
+        }
+      }
+      ctx.restore();
     }
-    ctx.globalAlpha = 1;
+
+    /* --- night floods ----------------------------------------------------- */
+    if (night > 0.12){
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      for (const sgn of [-1, 1]){
+        const [lx, ly] = view.project(sgn * wallX * 0.8, CFG.WALL_H + 2.2, 15);
+        const fgl = ctx.createRadialGradient(lx, ly, 0, lx, ly, H * 0.7);
+        fgl.addColorStop(0, `rgba(255,228,158,${0.13 * night})`);
+        fgl.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = fgl;
+        ctx.fillRect(0, 0, W, H);
+      }
+      ctx.restore();
+    }
   }
-  crane(ctx, x, baseY, h, arm, flip, s){
-    const d = flip ? -1 : 1;
-    ctx.beginPath();
-    ctx.moveTo(x, baseY); ctx.lineTo(x, baseY - h);
-    for (let y = baseY; y > baseY - h; y -= 26 * s){
-      ctx.moveTo(x - 7 * s, y); ctx.lineTo(x + 7 * s, y - 13 * s);
-      ctx.moveTo(x + 7 * s, y); ctx.lineTo(x - 7 * s, y - 13 * s);
-      ctx.moveTo(x - 7 * s, y); ctx.lineTo(x - 7 * s, y - 26 * s);
-      ctx.moveTo(x + 7 * s, y); ctx.lineTo(x + 7 * s, y - 26 * s);
+
+  /* The catch line is drawn after the shadows so it always reads on top. */
+  catchLine(ctx, view, night, s, pulse){
+    const pw = view.playW;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (let pass = 0; pass < 2; pass++){
+      const lw = (pass ? 9 : 2.4) * s;
+      const lz = CFG.Z_CATCH + CFG.BUCKET_D / 2;
+      this.line(ctx, view, [-pw, 0.01, lz], [pw, 0.01, lz],
+        PALETTE.hivis, lw, (pass ? 0.12 : 0.6) + pulse * 0.25);
     }
-    const ty = baseY - h;
-    ctx.moveTo(x - arm * 0.35 * d, ty); ctx.lineTo(x + arm * d, ty);
-    ctx.moveTo(x, ty - 26 * s); ctx.lineTo(x + arm * 0.7 * d, ty);
-    ctx.moveTo(x, ty - 26 * s); ctx.lineTo(x - arm * 0.3 * d, ty);
-    ctx.moveTo(x, ty); ctx.lineTo(x, ty - 26 * s);
-    ctx.moveTo(x + arm * 0.72 * d, ty); ctx.lineTo(x + arm * 0.72 * d, ty + 34 * s);
-    ctx.stroke();
+    ctx.restore();
   }
 }
 
-/* --------------------------------------------------------------- 5. BUCKET */
-/* Momentum model: the pointer sets a target, the bucket accelerates toward it
-   with exponential damping, and the residual velocity drives both the tilt
-   and the drag streaks — so the rig always feels like it has mass. */
+/* ------------------------------------------------------------ 7. THE CARGO */
+/* Item catalogue. Each piece is a prism: sides / radius / length / axis.
+   `r` is the catch radius used by the collision test. */
+const ITEMS = {
+  beam:   { kind:"material", value:100, weight:34, r:1.10, rest:0.42, color:"#F4D03F",
+            mesh: makePrism(4, 0.42, 2.30, "x", Math.PI / 4) },
+  pipe:   { kind:"material", value:75,  weight:26, r:0.95, rest:0.45, color:"#9AA3AB",
+            mesh: makePrism(12, 0.45, 1.90, "x") },
+  plate:  { kind:"material", value:160, weight:12, r:0.82, rest:0.12, color:"#FFE58A",
+            mesh: makePrism(6, 0.80, 0.22, "y") },
+  crate:  { kind:"material", value:60,  weight:18, r:0.72, rest:0.50, color:"#E0B22C",
+            mesh: makePrism(4, 0.62, 1.00, "y", Math.PI / 4) },
+  drum:   { kind:"hazard",   value:0,   weight:0,  r:0.70, rest:0.60, color:"#E0483A",
+            mesh: makePrism(12, 0.50, 1.20, "y") },
+  rubble: { kind:"hazard",   value:0,   weight:0,  r:0.74, rest:0.36, color:"#C4402F",
+            mesh: makePrism(5, 0.66, 0.72, "y") },
+  magnet: { kind:"power",    value:0,   weight:0,  r:0.80, rest:0.72, color:"#5FD3E0", power:"magnet",
+            mesh: makePrism(6, 0.58, 0.62, "y") },
+  titan:  { kind:"power",    value:0,   weight:0,  r:0.80, rest:0.72, color:"#E9EDF0", power:"titanium",
+            mesh: makePrism(6, 0.58, 0.62, "y") },
+};
+
+class FallingItem {
+  constructor(type, x, speedMul){
+    const def = ITEMS[type];
+    this.type = type; this.def = def; this.kind = def.kind;
+    this.x = x;
+    this.z = CFG.Z_SPAWN;
+    this.v = CFG.THROW_V * speedMul;
+    this.speedMul = speedMul;
+    this.h0 = rand(0.22, 0.55);       // height it leaves the gantry at
+    this.arc = rand(0.08, 0.26);      // how much loft the throw carries
+    this.y = this.h0;
+    this.yaw = rand(0, TAU);
+    this.pitch = rand(0, TAU);
+    this.spinY = rand(-1.7, 1.7) * (def.kind === "power" ? 0.5 : 1);
+    this.spinX = rand(-1.3, 1.3) * (def.kind === "power" ? 0 : 1);
+    this.glow = 0;
+  }
+  /* Normalised progress down the yard: 1 at the gantry, 0 at the bucket. */
+  get t(){ return clamp((this.z - CFG.Z_CATCH) / (CFG.Z_SPAWN - CFG.Z_CATCH), 0, 1); }
+  update(dt, game){
+    this.v += CFG.THROW_A * this.speedMul * dt;
+    this.z -= this.v * dt;
+
+    /* Magnetic Field: steers material onto the bucket's line as it closes in. */
+    if (game.power.magnet > 0 && this.kind === "material"){
+      const reach = clamp(1 - (this.z - CFG.Z_CATCH) / CFG.MAGNET_RANGE, 0, 1);
+      if (reach > 0){
+        const dx = game.bucket.x - this.x;
+        this.x += clamp(dx, -1, 1) * CFG.MAGNET_PULL * reach * dt;
+        this.spinY += dt * 1.5;
+        if (Math.random() < 10 * dt) game.magnetSpark(this);
+      }
+    }
+
+    const t = this.t;
+    this.y = this.def.rest + (this.h0 - this.def.rest) * t + this.arc * 4 * t * (1 - t);
+    this.yaw += this.spinY * dt;
+    this.pitch += this.spinX * dt;
+    this.glow = Math.max(0, this.glow - dt * 2);
+  }
+
+  /* Ground shadow — the player's main depth cue for where a piece will land. */
+  drawShadow(ctx, view, night){
+    const [sx, sy, s] = view.project(this.x, 0, this.z);
+    const lift = clamp(this.y / 1.1, 0, 1);
+    const r = this.def.r * s * (0.75 + lift * 0.9);
+    ctx.save();
+    ctx.globalAlpha = (0.34 - lift * 0.18) * (1 - night * 0.35);
+    ctx.fillStyle = "#05070A";
+    ctx.beginPath();
+    ctx.ellipse(sx, sy, r, r * (view.camH / (this.z + CFG.CAM_D)) * 1.15, 0, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /* Landing marker on the catch line — reads like a targeting reticle. */
+  drawMarker(ctx, view, s){
+    const near = clamp(1 - (this.z - CFG.Z_CATCH) / 11, 0, 1);
+    if (near <= 0.02) return;
+    const col = this.kind === "hazard" ? PALETTE.hazard
+              : this.kind === "power" ? PALETTE.coolant : PALETTE.hivis;
+    const w = this.def.r * 1.1, d = 0.55;
+    const pts = [[this.x - w, 0.02, CFG.Z_CATCH - d], [this.x + w, 0.02, CFG.Z_CATCH - d],
+                 [this.x + w, 0.02, CFG.Z_CATCH + d], [this.x - w, 0.02, CFG.Z_CATCH + d]];
+    ctx.save();
+    ctx.globalAlpha = 0.15 + near * 0.55;
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 1.6 * s;
+    ctx.setLineDash([7 * s, 5 * s]);
+    ctx.beginPath();
+    pts.forEach((p, i) => { const q = view.project(p[0], p[1], p[2]); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); });
+    ctx.closePath(); ctx.stroke();
+    ctx.restore();
+  }
+
+  draw(ctx, view, night, s, time){
+    const emissive = this.kind === "power";
+    if (emissive){
+      const [sx, sy, sc] = view.project(this.x, this.y, this.z);
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      const rr = sc * 1.5;
+      const gg = ctx.createRadialGradient(sx, sy, 0, sx, sy, rr);
+      gg.addColorStop(0, rgba(this.def.color, 0.5));
+      gg.addColorStop(1, rgba(this.def.color, 0));
+      ctx.fillStyle = gg;
+      ctx.beginPath(); ctx.arc(sx, sy, rr, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
+
+    drawMesh(ctx, view, this.def.mesh, [this.x, this.y, this.z], this.yaw, this.pitch, {
+      color: this.def.color,
+      light: lerp(1, 0.82, night) + this.glow * 0.5,
+      lift: emissive ? 0.12 : 0,
+      edge: 0.022,
+      edgeColor: emissive ? rgba(this.def.color, 0.95)
+                : this.kind === "hazard" ? rgba("#FF9A80", 0.5)
+                : rgba("#FFF3C4", 0.38),
+    });
+
+    /* power-ups carry their glyph as a camera-facing billboard */
+    if (emissive){
+      const [sx, sy, sc] = view.project(this.x, this.y, this.z);
+      const r = sc * 0.3;
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.strokeStyle = "#FFFFFF";
+      ctx.lineWidth = Math.max(1.4, sc * 0.035);
+      ctx.lineJoin = "round"; ctx.lineCap = "round";
+      ctx.globalAlpha = 0.9;
+      if (this.def.power === "magnet"){
+        ctx.beginPath();
+        ctx.arc(0, r * 0.15, r * 0.62, Math.PI, 0);
+        ctx.moveTo(-r * 0.62, r * 0.15); ctx.lineTo(-r * 0.62, r * 0.66);
+        ctx.moveTo(-r * 0.24, r * 0.15); ctx.lineTo(-r * 0.24, r * 0.66);
+        ctx.moveTo(r * 0.62, r * 0.15);  ctx.lineTo(r * 0.62, r * 0.66);
+        ctx.moveTo(r * 0.24, r * 0.15);  ctx.lineTo(r * 0.24, r * 0.66);
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(-r * 0.42, -r * 0.05); ctx.lineTo(-r * 0.1, r * 0.32); ctx.lineTo(r * 0.46, -r * 0.34);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+}
+
+/* ---------------------------------------------------------------- 8. BUCKET */
+/* The rig: an open scoop welded to the near line. Momentum comes from
+   exponential damping toward the pointer; the residual velocity leans the
+   scoop and smears its glow. */
 class Bucket {
   constructor(){ this.x = 0; this.vx = 0; this.target = 0; this.tilt = 0; this.squash = 0; this.flash = 0; }
-  reset(W, H, s){
-    this.x = this.target = W / 2;
+  reset(view){
+    this.x = this.target = 0;
     this.vx = this.tilt = this.squash = this.flash = 0;
-    this.w = Math.min(CFG.BUCKET_W * s, W * 0.28);
-    this.h = CFG.BUCKET_H * s;
-    this.y = H * CFG.BUCKET_Y;
+    this.w = Math.min(CFG.BUCKET_W, view.playW * 0.5);
+    this.h = 0.50;
   }
-  update(dt, W, H, s, game){
-    this.w = Math.min(CFG.BUCKET_W * s, W * 0.28) * (game.power.titanium > 0 ? 1.1 : 1);
-    this.h = CFG.BUCKET_H * s;
-    this.y = H * CFG.BUCKET_Y;
+  get halfW(){ return this.w / 2; }
+  update(dt, view, game){
+    this.w = Math.min(CFG.BUCKET_W, view.playW * 0.5) * (game.power.titanium > 0 ? 1.12 : 1);
+    const limit = view.playW - this.halfW;
 
-    if (Input.active && Input.x !== null) this.target = Input.x;
+    /* pointer x -> world x on the catch line */
+    if (Input.active && Input.x !== null){
+      this.target = (Input.x - view.W / 2) / view.scaleAt(CFG.Z_CATCH);
+    }
     const kb = (Input.keyRight ? 1 : 0) - (Input.keyLeft ? 1 : 0);
-    if (kb) this.target += kb * 860 * s * dt;
-    this.target = clamp(this.target, this.w / 2, W - this.w / 2);
+    if (kb) this.target += kb * 9 * dt;
+    this.target = clamp(this.target, -limit, limit);
 
     const prev = this.x;
-    this.x = damp(this.x, this.target, CFG.BUCKET_EASE, dt);
-    this.x = clamp(this.x, this.w / 2, W - this.w / 2);
+    this.x = clamp(damp(this.x, this.target, CFG.BUCKET_EASE, dt), -limit, limit);
     this.vx = dt > 0 ? (this.x - prev) / dt : 0;
-
-    this.tilt = damp(this.tilt, clamp(this.vx * 0.00042, -0.32, 0.32), 9, dt);
+    this.tilt = damp(this.tilt, clamp(this.vx * 0.05, -0.5, 0.5), 9, dt);
     this.squash = damp(this.squash, 0, 9, dt);
     this.flash = Math.max(0, this.flash - dt * 3);
   }
-  /* Catch band: a shallow mouth just inside the rim, checked against the
-     item's circle so grazes along the lip still register. */
-  mouth(s){
-    const inset = this.w * 0.07;
-    return { x0: this.x - this.w / 2 + inset, x1: this.x + this.w / 2 - inset,
-             y0: this.y - this.h * 0.5, y1: this.y - this.h * 0.5 + CFG.MOUTH_DEPTH * s };
-  }
-  pop(amount){ this.squash = amount; this.flash = 1; }
-  draw(ctx, s, game, time){
-    const { x, y, w, h } = this;
-    const sq = 1 + this.squash * 0.16, sqx = 1 - this.squash * 0.10;
-    const titan = game.power.titanium > 0, magnet = game.power.magnet > 0;
+  pop(a){ this.squash = a; this.flash = 1; }
 
-    /* drag streaks — momentum made visible */
-    const sp = Math.abs(this.vx);
-    if (sp > 120 && !REDUCED){
-      ctx.globalAlpha = Math.min(0.3, sp / 3000);
-      ctx.strokeStyle = PALETTE.hivis; ctx.lineWidth = 2 * s; ctx.lineCap = "round";
-      for (let i = 1; i <= 3; i++){
-        const ox = -Math.sign(this.vx) * i * 15 * s;
-        ctx.beginPath();
-        ctx.moveTo(x + ox - w * 0.34, y - h * 0.34);
-        ctx.lineTo(x + ox - w * 0.34, y + h * 0.20);
-        ctx.stroke();
-      }
+  draw(ctx, view, s, game, time){
+    const zN = CFG.Z_CATCH - CFG.BUCKET_D / 2, zF = CFG.Z_CATCH + CFG.BUCKET_D / 2;
+    const hw = this.halfW, h = this.h * (1 + this.squash * 0.18);
+    const titan = game.power.titanium > 0;
+    const lean = this.tilt * 0.35;
+
+    const body = titan ? "#7FE3EE" : "#F4D03F";
+    const edge = titan ? "#EAFBFF" : "#FFF2BE";
+    const P = (x, y, z) => view.project(x, y, z);
+    const quad = (pts, fill, alpha = 1) => {
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      pts.forEach((p, i) => { const q = P(p[0], p[1], p[2]); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); });
+      ctx.closePath();
+      ctx.fillStyle = fill; ctx.fill();
       ctx.globalAlpha = 1;
-    }
+    };
 
+    /* pooled light under the rig, like a work lamp on the deck */
+    const [gx, gy, gs] = P(this.x, 0, CFG.Z_CATCH);
     ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(this.tilt);
-    ctx.scale(sqx, sq);
+    ctx.globalCompositeOperation = "lighter";
+    const pool = ctx.createRadialGradient(gx, gy, 0, gx, gy, gs * 2.1);
+    pool.addColorStop(0, rgba(body, 0.30 + this.flash * 0.25));
+    pool.addColorStop(1, rgba(body, 0));
+    ctx.fillStyle = pool;
+    ctx.beginPath(); ctx.ellipse(gx, gy, gs * 2.1, gs * 0.62, 0, 0, TAU); ctx.fill();
+    ctx.restore();
 
-    /* hydraulic arm stub reaching off the top of the rig */
-    ctx.strokeStyle = mixHex("#6E7066", "#F4D03F", this.flash * 0.6);
-    ctx.lineWidth = 5 * s; ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(-w * 0.12, -h * 0.42); ctx.lineTo(-w * 0.02, -h * 1.35);
-    ctx.moveTo(w * 0.12, -h * 0.42);  ctx.lineTo(w * 0.02, -h * 1.35);
-    ctx.stroke();
+    /* interior floor, then the far wall seen from inside, then the near face */
+    quad([[this.x - hw, 0.03, zN], [this.x + hw, 0.03, zN],
+          [this.x + hw, 0.03, zF], [this.x - hw, 0.03, zF]], shade(body, 0.34), 0.95);
+    quad([[this.x - hw + lean, h, zF], [this.x + hw + lean, h, zF],
+          [this.x + hw, 0.03, zF], [this.x - hw, 0.03, zF]], shade(body, 0.52));
+    for (const sgn of [-1, 1]){
+      quad([[this.x + sgn * hw, 0.03, zN], [this.x + sgn * hw + lean, h, zN],
+            [this.x + sgn * hw + lean, h, zF], [this.x + sgn * hw, 0.03, zF]], shade(body, 0.44));
+    }
+    quad([[this.x - hw, 0.03, zN], [this.x - hw + lean, h, zN],
+          [this.x + hw + lean, h, zN], [this.x + hw, 0.03, zN]], shade(body, 0.92, this.flash * 0.25));
 
-    /* the scoop: open trapezoid with a rounded heel, cut teeth on the rim */
-    const hw = w / 2, hh = h / 2;
-    const body = [[-hw, -hh], [hw, -hh], [hw * 0.74, hh * 0.72], [-hw * 0.74, hh * 0.72]];
-    ctx.beginPath();
-    ctx.moveTo(body[0][0], body[0][1]);
-    ctx.lineTo(body[1][0], body[1][1]);
-    ctx.lineTo(body[2][0], body[2][1]);
-    ctx.quadraticCurveTo(0, hh * 1.32, body[3][0], body[3][1]);
-    ctx.closePath();
-
-    const fill = ctx.createLinearGradient(0, -hh, 0, hh);
-    fill.addColorStop(0, "rgba(28,30,33,.35)");
-    fill.addColorStop(1, titan ? "rgba(95,211,224,.30)" : "rgba(244,208,63,.16)");
-    ctx.fillStyle = fill; ctx.fill();
-
+    /* rim + cutting teeth on the far lip */
+    ctx.save();
+    ctx.strokeStyle = edge;
+    ctx.lineWidth = Math.max(1.6, 2.4 * s);
     ctx.lineJoin = "round";
-    ctx.lineWidth = 3.4 * s;
-    ctx.strokeStyle = titan
-      ? mixHex(PALETTE.coolant, PALETTE.paper, 0.5 + Math.sin(time * 12) * 0.4)
-      : mixHex(PALETTE.hivis, PALETTE.paper, this.flash * 0.7);
-    if (!REDUCED){ ctx.shadowColor = titan ? PALETTE.coolant : PALETTE.hivis; ctx.shadowBlur = 14 * s * (0.4 + this.flash); }
-    ctx.stroke();
-    ctx.shadowBlur = 0;
+    if (!REDUCED){ ctx.shadowColor = body; ctx.shadowBlur = 16 * s; }
+    ctx.beginPath();
+    [[this.x - hw + lean, h, zN], [this.x + hw + lean, h, zN],
+     [this.x + hw + lean, h, zF], [this.x - hw + lean, h, zF]].forEach((p, i) => {
+      const q = P(p[0], p[1], p[2]); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]);
+    });
+    ctx.closePath(); ctx.stroke();
 
-    /* rim teeth */
-    ctx.lineWidth = 2.6 * s;
     ctx.beginPath();
     for (let i = -2; i <= 2; i++){
-      const tx = i * (w * 0.19);
-      ctx.moveTo(tx - 5 * s, -hh);
-      ctx.lineTo(tx, -hh - 9 * s);
-      ctx.lineTo(tx + 5 * s, -hh);
+      const tx = this.x + i * (hw * 0.42) + lean;
+      const a = P(tx - 0.09, h, zF), b = P(tx, h + 0.16, zF), c = P(tx + 0.09, h, zF);
+      ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.lineTo(c[0], c[1]);
     }
     ctx.stroke();
-
-    /* wear ribs */
-    ctx.globalAlpha = 0.45; ctx.lineWidth = 2 * s;
-    ctx.beginPath();
-    ctx.moveTo(-hw * 0.45, -hh * 0.2); ctx.lineTo(-hw * 0.36, hh * 0.85);
-    ctx.moveTo(hw * 0.45, -hh * 0.2);  ctx.lineTo(hw * 0.36, hh * 0.85);
-    ctx.stroke();
-    ctx.globalAlpha = 1;
     ctx.restore();
 
-    /* power-up auras drawn unrotated so they read as fields, not parts */
-    if (magnet){
+    /* power-up fields, drawn as true ground/air circles so they sit in the scene */
+    if (game.power.magnet > 0){
       const pulse = 0.6 + 0.4 * Math.sin(time * 6);
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
       ctx.strokeStyle = PALETTE.coolant;
-      ctx.globalAlpha = 0.16 + 0.14 * pulse;
-      ctx.lineWidth = 2 * s;
-      for (let i = 0; i < 3; i++){
+      ctx.lineWidth = 1.6 * s;
+      for (let ring = 1; ring <= 3; ring++){
+        const R = ring * 1.6 * (0.94 + 0.06 * pulse);
+        ctx.globalAlpha = 0.30 - ring * 0.06;
         ctx.beginPath();
-        ctx.arc(x, y - h * 0.2, (CFG.MAGNET_RADIUS * s) * (0.42 + i * 0.28) * (0.94 + 0.06 * pulse), Math.PI * 1.08, Math.PI * 1.92);
+        for (let i = 0; i <= 28; i++){
+          const a = (i / 28) * Math.PI;                 // only the far half reads
+          const p = P(this.x + Math.cos(a) * R, 0.02, CFG.Z_CATCH + Math.sin(a) * R * 0.9);
+          i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]);
+        }
         ctx.stroke();
       }
-      ctx.globalAlpha = 1;
+      ctx.restore();
     }
     if (titan){
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
       ctx.strokeStyle = PALETTE.coolant;
-      ctx.globalAlpha = 0.4 + 0.25 * Math.sin(time * 9);
+      ctx.globalAlpha = 0.28 + 0.16 * Math.sin(time * 9);
       ctx.lineWidth = 2 * s;
-      poly(ctx, [[x, y - h * 1.05], [x + w * 0.62, y - h * 0.3], [x + w * 0.62, y + h * 0.5],
-                 [x, y + h * 1.0], [x - w * 0.62, y + h * 0.5], [x - w * 0.62, y - h * 0.3]]);
-      ctx.stroke();
-      ctx.globalAlpha = 1;
+      ctx.beginPath();
+      for (let i = 0; i <= 36; i++){
+        const a = (i / 36) * TAU;
+        const p = P(this.x + Math.cos(a) * hw * 1.35, 0.03, CFG.Z_CATCH + Math.sin(a) * hw * 1.15);
+        i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]);
+      }
+      ctx.closePath(); ctx.stroke();
+      ctx.restore();
     }
   }
 }
 
-/* --------------------------------------------------------- 5b. FALLING ITEM */
-class FallingItem {
-  constructor(type, x, y, s, speedMul){
-    const def = ITEMS[type];
-    this.type = type; this.def = def; this.kind = def.kind;
-    this.x = x; this.y = y;
-    this.vx = rand(-40, 40) * s;
-    this.vy = rand(40, 110) * s * speedMul;
-    this.r = def.r * s;
-    this.rot = rand(0, TAU);
-    this.spin = rand(-2.4, 2.4) * (def.kind === "power" ? 0.35 : 1);
-    this.speedMul = speedMul;
-    this.dead = false; this.caught = false;
-    this.wobble = rand(0, TAU);
-    this.trail = [];
-  }
-  update(dt, s, game){
-    const grav = CFG.GRAVITY * s * this.speedMul;
-    this.vy += grav * dt;
-
-    /* Magnetic Field: steers materials toward the bucket mouth with a
-       distance-weighted pull, then lets gravity finish the job. */
-    if (game.power.magnet > 0 && this.kind === "material"){
-      const bx = game.bucket.x, by = game.bucket.y - game.bucket.h * 0.4;
-      const dx = bx - this.x, dy = by - this.y;
-      const d = Math.hypot(dx, dy) || 1;
-      const R = CFG.MAGNET_RADIUS * s;
-      if (d < R && dy > -this.r){
-        const pull = CFG.MAGNET_PULL * s * (1 - d / R);
-        this.vx += (dx / d) * pull * dt;
-        this.vy += (dy / d) * pull * dt * 0.55;
-        this.spin += dt * 2;
-        if (Math.random() < 12 * dt) game.fx.sparks(this.x, this.y, 1, PALETTE.coolant, 0.6, Math.atan2(dy, dx), 90);
-      }
-    }
-    this.vx *= Math.pow(0.6, dt);
-    this.x += this.vx * dt;
-    this.y += this.vy * dt;
-    this.rot += this.spin * dt;
-    this.wobble += dt * 4;
-
-    if (this.kind === "power" && !REDUCED){
-      this.trail.push({ x:this.x, y:this.y, a:1 });
-      if (this.trail.length > 9) this.trail.shift();
-      for (const t of this.trail) t.a -= dt * 2.6;
-    }
-  }
-  draw(ctx, s, night, time){
-    /* power-ups leave a comet trail so they read as "special" instantly */
-    if (this.trail.length){
-      ctx.strokeStyle = this.def.color; ctx.lineWidth = 2 * s;
-      for (const t of this.trail){
-        if (t.a <= 0) continue;
-        ctx.globalAlpha = t.a * 0.35;
-        ctx.beginPath(); ctx.arc(t.x, t.y, this.r * 0.5 * t.a, 0, TAU); ctx.stroke();
-      }
-      ctx.globalAlpha = 1;
-    }
-
-    ctx.save();
-    ctx.translate(this.x, this.y);
-    ctx.rotate(this.rot);
-    const r = this.r;
-    ctx.lineJoin = "round"; ctx.lineCap = "round";
-    ctx.lineWidth = 2.8 * s;
-
-    const glow = this.kind === "power" ? 18 : this.kind === "hazard" ? 10 : 8;
-    const isNightBoost = night > 0.5 && this.kind === "material";
-    ctx.strokeStyle = this.def.color;
-    ctx.fillStyle = this.kind === "hazard" ? "rgba(224,72,58,.12)"
-                  : this.kind === "power" ? "rgba(95,211,224,.14)"
-                  : `rgba(244,208,63,${0.08 + (isNightBoost ? 0.06 : 0)})`;
-    if (!REDUCED){
-      ctx.shadowColor = this.def.color;
-      ctx.shadowBlur = glow * s * (this.kind === "power" ? (0.7 + 0.5 * Math.sin(time * 8)) : 1);
-    }
-    SHAPES[this.type](ctx, r, s, time);
-    ctx.restore();
-    ctx.shadowBlur = 0;
-  }
-}
-
-/* Every piece is a minimal vector outline — the same language as the bucket,
-   drawn from primitives so it stays crisp at any scale. */
-const SHAPES = {
-  beam(ctx, r){
-    rrect(ctx, -r, -r * 0.46, r * 2, r * 0.92, r * 0.16);
-    ctx.fill(); ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(-r * 0.62, -r * 0.46); ctx.lineTo(-r * 0.2, r * 0.46);
-    ctx.moveTo(r * 0.2, -r * 0.46);   ctx.lineTo(r * 0.62, r * 0.46);
-    ctx.stroke();
-  },
-  pipe(ctx, r){
-    ctx.beginPath(); ctx.arc(0, 0, r * 0.92, 0, TAU); ctx.fill(); ctx.stroke();
-    ctx.beginPath(); ctx.arc(0, 0, r * 0.46, 0, TAU); ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(-r * 0.92, 0); ctx.lineTo(-r * 0.46, 0);
-    ctx.moveTo(r * 0.46, 0);  ctx.lineTo(r * 0.92, 0);
-    ctx.stroke();
-  },
-  plate(ctx, r){
-    const hex = i => [Math.cos(i * TAU / 6) * r, Math.sin(i * TAU / 6) * r];
-    poly(ctx, [0, 1, 2, 3, 4, 5].map(hex)); ctx.fill(); ctx.stroke();
-    poly(ctx, [0, 1, 2, 3, 4, 5].map(i => { const p = hex(i); return [p[0] * 0.5, p[1] * 0.5]; }));
-    ctx.stroke();
-  },
-  crate(ctx, r){
-    rrect(ctx, -r * 0.82, -r * 0.82, r * 1.64, r * 1.64, r * 0.18);
-    ctx.fill(); ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(-r * 0.82, -r * 0.82); ctx.lineTo(r * 0.82, r * 0.82);
-    ctx.moveTo(r * 0.82, -r * 0.82);  ctx.lineTo(-r * 0.82, r * 0.82);
-    ctx.stroke();
-  },
-  drum(ctx, r){
-    poly(ctx, [[-r * 0.62, -r * 0.9], [r * 0.62, -r * 0.9], [r * 0.82, r * 0.9], [-r * 0.82, r * 0.9]]);
-    ctx.fill(); ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(-r * 0.68, -r * 0.2); ctx.lineTo(r * 0.68, -r * 0.2);
-    ctx.moveTo(-r * 0.75, r * 0.35); ctx.lineTo(r * 0.75, r * 0.35);
-    ctx.stroke();
-    ctx.lineWidth *= 0.8;
-    ctx.beginPath();
-    for (let i = -1; i <= 1; i++){
-      ctx.moveTo(i * r * 0.42 - r * 0.16, r * 0.35);
-      ctx.lineTo(i * r * 0.42 + r * 0.16, -r * 0.2);
-    }
-    ctx.stroke();
-  },
-  rubble(ctx, r){
-    poly(ctx, [[-r, -r * 0.2], [-r * 0.45, -r * 0.95], [r * 0.4, -r * 0.8],
-               [r, r * 0.1], [r * 0.4, r * 0.92], [-r * 0.55, r * 0.8]]);
-    ctx.fill(); ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(-r * 0.45, -r * 0.95); ctx.lineTo(-r * 0.1, r * 0.1); ctx.lineTo(r, r * 0.1);
-    ctx.moveTo(-r * 0.1, r * 0.1); ctx.lineTo(-r * 0.55, r * 0.8);
-    ctx.stroke();
-  },
-  magnet(ctx, r, s, time){
-    ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
-    ctx.beginPath();
-    ctx.arc(0, r * 0.12, r * 0.62, Math.PI, 0);
-    ctx.lineTo(r * 0.62, r * 0.62); ctx.lineTo(r * 0.24, r * 0.62);
-    ctx.lineTo(r * 0.24, r * 0.12);
-    ctx.arc(0, r * 0.12, r * 0.24, 0, Math.PI, true);
-    ctx.lineTo(-r * 0.24, r * 0.62); ctx.lineTo(-r * 0.62, r * 0.62);
-    ctx.closePath(); ctx.stroke();
-    ctx.beginPath(); ctx.arc(0, 0, r * (0.86 + 0.1 * Math.sin(time * 7)), 0, TAU);
-    ctx.globalAlpha = 0.45; ctx.stroke(); ctx.globalAlpha = 1;
-  },
-  titan(ctx, r, s, time){
-    poly(ctx, [[0, -r], [r * 0.88, -r * 0.5], [r * 0.88, r * 0.42],
-               [0, r], [-r * 0.88, r * 0.42], [-r * 0.88, -r * 0.5]]);
-    ctx.fill(); ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(-r * 0.4, 0); ctx.lineTo(-r * 0.1, r * 0.34); ctx.lineTo(r * 0.44, -r * 0.32);
-    ctx.stroke();
-    ctx.globalAlpha = 0.4 + 0.3 * Math.sin(time * 7);
-    ctx.beginPath(); ctx.arc(0, 0, r * 1.16, 0, TAU); ctx.stroke();
-    ctx.globalAlpha = 1;
-  },
-};
-
-/* ----------------------------------------------------------------- 6. GAME */
+/* ------------------------------------------------------------------ 9. GAME */
 class Game {
   constructor(canvas){
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
     this.dpr = 1;
-    this.state = "menu";          // menu | playing | paused | over
-    this.bg = new Backdrop();
+    this.state = "menu";
+    this.view = new View();
+    this.arena = new Arena();
     this.bucket = new Bucket();
     this.fx = new Particles();
     this.popups = new Popups();
@@ -1169,12 +1310,12 @@ class Game {
     this.items = [];
     this.time = 0;
     this.best = store.get("tm_best", 0);
+    this.isRecord = false;
     this.resize();
     window.addEventListener("resize", () => this.resize());
     this.reset();
   }
 
-  /* ---------------------------------------------------------- dimensions */
   resize(){
     const rect = this.canvas.getBoundingClientRect();
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -1183,11 +1324,10 @@ class Game {
     this.W = this.canvas.width / this.dpr;
     this.H = this.canvas.height / this.dpr;
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    this.s = clamp(this.H / CFG.REF_H, 0.55, 1.6);   // gameplay scale factor
-    if (this.bucket) { this.bucket.y = this.H * CFG.BUCKET_Y; }
+    this.s = clamp(this.H / CFG.REF_H, 0.55, 1.6);
+    this.view.resize(this.W, this.H);
   }
 
-  /* --------------------------------------------------------------- setup */
   reset(){
     this.score = 0;
     this.displayScore = 0;
@@ -1199,7 +1339,7 @@ class Game {
     this.nextStreak = 0;
     this.night = 0;
     this.announcedNight = false;
-    this.spawnTimer = 0.8;
+    this.spawnTimer = 0.9;
     this.powerTimer = rand(9, 13);
     this.hitFlash = 0;
     this.catchGlow = 0;
@@ -1207,26 +1347,24 @@ class Game {
     this.items.length = 0;
     this.fx.clear();
     this.popups.clear();
-    this.bucket.reset(this.W, this.H, this.s);
+    this.bucket.reset(this.view);
     Input.x = null; Input.active = false;
   }
 
   /* ------------------------------------------------------- phase / tuning */
   get phaseName(){ return this.night > 0.55 ? "Night Shift" : this.night > 0.05 ? "Dusk" : "Morning Shift"; }
-  get scoreMult(){ return 1 + this.night; }          // Night pays double
-  get speedMul(){ return 1 + this.night * 0.55 + Math.min(0.35, this.caught * 0.004); }
+  get scoreMult(){ return 1 + this.night; }
+  get speedMul(){ return 1 + this.night * 0.5 + Math.min(0.3, this.caught * 0.0035); }
   get hazardChance(){ return 0.15 + this.night * 0.17 + Math.min(0.06, this.caught * 0.0008); }
   get spawnInterval(){
-    const base = lerp(CFG.SPAWN_START, CFG.SPAWN_FLOOR + 0.16, this.night);
-    return Math.max(CFG.SPAWN_FLOOR, base - Math.min(0.22, this.caught * 0.0026));
+    const base = lerp(CFG.SPAWN_START, CFG.SPAWN_FLOOR + 0.18, this.night);
+    return Math.max(CFG.SPAWN_FLOOR, base - Math.min(0.24, this.caught * 0.0028));
   }
   get multiplier(){ return Math.min(CFG.COMBO_MAX_MULT, 1 + Math.floor(this.combo / 4)); }
 
-  /* -------------------------------------------------------------- spawner */
+  /* ---------------------------------------------------------------- spawn */
   spawn(){
-    const s = this.s, margin = 60 * s;
-    const x = rand(margin, this.W - margin);
-    const y = -40 * s;
+    const lane = this.view.playW * 0.82;
     let type;
     if (Math.random() < this.hazardChance){
       type = Math.random() < 0.6 ? "drum" : "rubble";
@@ -1235,20 +1373,30 @@ class Game {
       let total = pool.reduce((a, k) => a + ITEMS[k].weight, 0), roll = Math.random() * total;
       type = pool.find(k => (roll -= ITEMS[k].weight) <= 0) || "beam";
     }
-    this.items.push(new FallingItem(type, x, y, s, this.speedMul));
+    this.items.push(new FallingItem(type, rand(-lane, lane), this.speedMul));
   }
   spawnPower(){
-    const s = this.s, margin = 70 * s;
+    const lane = this.view.playW * 0.7;
     const type = Math.random() < 0.5 ? "magnet" : "titan";
-    const it = new FallingItem(type, rand(margin, this.W - margin), -40 * s, s, 0.72);
-    this.items.push(it);
+    this.items.push(new FallingItem(type, rand(-lane, lane), 0.72));
   }
 
-  /* ---------------------------------------------------------------- score */
+  /* Screen position of a world point, for spawning screen-space FX. */
+  screenOf(item, dy = 0){
+    const [x, y, s] = this.view.project(item.x, item.y + dy, item.z);
+    return [x, y, s];
+  }
+  magnetSpark(item){
+    const [x, y, s] = this.screenOf(item);
+    this.fx.sparks(x, y, 1, PALETTE.coolant, 0.7, Math.atan2(0, this.bucket.x - item.x), 60 * (s / 200));
+  }
+
+  /* -------------------------------------------------------------- scoring */
   award(item){
-    const base = item.def.value;
+    const [sx, sy, sc] = this.screenOf(item);
+    const scale = sc / 220;
     const mult = this.multiplier;
-    const pts = Math.round(base * mult * this.scoreMult);
+    const pts = Math.round(item.def.value * mult * this.scoreMult);
     this.score += pts;
     this.caught++;
     this.combo++;
@@ -1257,71 +1405,72 @@ class Game {
     this.catchGlow = 1;
 
     const col = item.type === "plate" ? "#FFE58A" : PALETTE.hivis;
-    this.popups.add(item.x, item.y - 14 * this.s, `+${pts}`, col, 22 * this.s);
-    this.fx.sparks(item.x, item.y, 14, col, Math.PI * 1.2, -Math.PI / 2, 300 * this.s);
-    this.fx.ring(item.x, item.y, col, 70 * this.s, 3);
+    this.popups.add(sx, sy - 30 * this.s, `+${pts}`, col, 22 * this.s);
+    this.fx.sparks(sx, sy, 16, col, Math.PI * 1.3, -Math.PI / 2, 340 * scale);
+    this.fx.ring(sx, sy, col, 80 * scale, 3);
     this.bucket.pop(0.55);
-    this.shake.kick(2.2 + Math.min(4, mult * 0.5));
+    this.shake.kick(2.4 + Math.min(4, mult * 0.5));
     Audio_.catch_(this.combo);
 
-    /* micro-reward: escalating streak callouts */
     while (this.nextStreak < STREAKS.length && this.combo >= STREAKS[this.nextStreak].at){
       const st = STREAKS[this.nextStreak++];
-      this.popups.add(this.W / 2, this.H * 0.34, st.text, PALETTE.hivis, 46 * this.s);
-      this.fx.ring(this.W / 2, this.H * 0.34, PALETTE.hivis, 190 * this.s, 4);
+      this.popups.add(this.W / 2, this.H * 0.36, st.text, PALETTE.hivis, 46 * this.s);
+      this.fx.ring(this.W / 2, this.H * 0.36, PALETTE.hivis, 190 * this.s, 4);
       this.shake.kick(6);
       Audio_.bonus();
     }
   }
-
   grabPower(item){
+    const [sx, sy, sc] = this.screenOf(item);
     const kind = item.def.power;
     this.power[kind] = CFG.POWER_TIME;
     const label = kind === "magnet" ? "MAGNETIC FIELD" : "TITANIUM FRAME";
-    this.popups.add(this.W / 2, this.H * 0.42, label, PALETTE.coolant, 38 * this.s);
-    this.popups.add(item.x, item.y - 12 * this.s, "ENGAGED", PALETTE.coolant, 18 * this.s);
-    this.fx.sparks(item.x, item.y, 26, PALETTE.coolant, TAU, 0, 340 * this.s);
-    this.fx.ring(item.x, item.y, PALETTE.coolant, 150 * this.s, 5);
+    this.popups.add(this.W / 2, this.H * 0.44, label, PALETTE.coolant, 38 * this.s);
+    this.popups.add(sx, sy - 26 * this.s, "ENGAGED", PALETTE.coolant, 18 * this.s);
+    this.fx.sparks(sx, sy, 28, PALETTE.coolant, TAU, 0, 360 * (sc / 220));
+    this.fx.ring(sx, sy, PALETTE.coolant, 160 * (sc / 220), 5);
     this.bucket.pop(0.8);
     this.shake.kick(5);
     Audio_.bonus();
   }
-
   smashHazard(item){
+    const [sx, sy, sc] = this.screenOf(item);
     this.score += Math.round(40 * this.scoreMult);
-    this.popups.add(item.x, item.y - 12 * this.s, "SMASHED", PALETTE.coolant, 20 * this.s);
-    this.fx.debris(item.x, item.y, 16, PALETTE.hazard);
-    this.fx.ring(item.x, item.y, PALETTE.coolant, 110 * this.s, 4);
+    this.popups.add(sx, sy - 24 * this.s, "SMASHED", PALETTE.coolant, 20 * this.s);
+    this.fx.debris(sx, sy, 18, PALETTE.hazard, sc / 220);
+    this.fx.ring(sx, sy, PALETTE.coolant, 120 * (sc / 220), 4);
     this.shake.kick(7);
     this.bucket.pop(0.5);
     Audio_.smash();
   }
-
   takeHit(item){
+    const [sx, sy, sc] = this.screenOf(item);
+    const scale = sc / 220;
     this.lives--;
     this.combo = 0; this.nextStreak = 0; this.comboTimer = 0;
     this.hitFlash = 1;
-    this.fx.debris(item.x, item.y, 24, PALETTE.hazard);
-    this.fx.sparks(item.x, item.y, 18, "#FF8A6A", TAU, 0, 320 * this.s);
-    this.fx.ring(item.x, item.y, PALETTE.hazard, 190 * this.s, 6);
-    this.popups.add(item.x, item.y - 16 * this.s, "-1 LIFE", PALETTE.hazard, 26 * this.s);
+    this.fx.debris(sx, sy, 26, PALETTE.hazard, scale);
+    this.fx.sparks(sx, sy, 20, "#FF8A6A", TAU, 0, 340 * scale);
+    this.fx.ring(sx, sy, PALETTE.hazard, 210 * scale, 6);
+    this.popups.add(sx, sy - 30 * this.s, "-1 LIFE", PALETTE.hazard, 26 * this.s);
     this.shake.kick(22);
     this.bucket.pop(0.9);
     Audio_.hit();
     if (this.lives <= 0) this.gameOver();
   }
-
   missMaterial(item){
-    if (this.combo >= 4) this.popups.add(item.x, this.H * CFG.FLOOR_Y - 26 * this.s, "STREAK LOST", PALETTE.concrete, 18 * this.s);
+    const [sx, sy, sc] = this.view.project(item.x, 0, CFG.Z_CATCH);
+    if (this.combo >= 4) this.popups.add(sx, sy - 40 * this.s, "STREAK LOST", PALETTE.concrete, 18 * this.s);
     this.combo = 0; this.nextStreak = 0; this.comboTimer = 0;
-    this.fx.dust(item.x, this.H * CFG.FLOOR_Y, "#9A9384");
+    this.fx.dust(sx, sy, "#A2977F", sc / 220);
     Audio_.miss();
   }
 
-  /* ----------------------------------------------------------- transitions */
+  /* ---------------------------------------------------------- transitions */
   gameOver(){
     this.state = "over";
-    this.fx.debris(this.bucket.x, this.bucket.y, 30, PALETTE.hivis);
+    const [bx, by, bs] = this.view.project(this.bucket.x, 0.4, CFG.Z_CATCH);
+    this.fx.debris(bx, by, 32, PALETTE.hivis, bs / 220);
     this.shake.kick(26);
     this.isRecord = this.score > 0 && this.score > this.best;
     if (this.isRecord){ this.best = this.score; store.set("tm_best", this.best); }
@@ -1336,95 +1485,84 @@ class Game {
   /* ----------------------------------------------------------------- tick */
   update(dt){
     this.time += dt;
-    this.bg.update(dt, this.s);
+    this.arena.update(dt);
     this.shake.update(dt);
-    this.fx.update(dt, CFG.GRAVITY * this.s);
+    this.fx.update(dt, 900 * this.s);
     this.popups.update(dt);
     this.displayScore = damp(this.displayScore, this.score, 9, dt);
     this.hitFlash = Math.max(0, this.hitFlash - dt * 2.2);
     this.catchGlow = Math.max(0, this.catchGlow - dt * 2.5);
 
     if (this.state !== "playing"){
-      /* attract mode still breathes: backdrop + particles keep running */
-      if (this.state === "menu") this.night = 0.18 + (Math.sin(this.time * 0.14) * 0.5 + 0.5) * 0.55;
+      if (this.state === "menu") this.night = 0.2 + (Math.sin(this.time * 0.14) * 0.5 + 0.5) * 0.5;
       return;
     }
 
-    /* Phase curve: hold Morning, then ease into Night. Driven by material
-       handled OR raw score, whichever is further along — so a steady operator
-       and a combo specialist both get to see the lights come on. */
+    /* Phase curve — driven by material handled OR score, whichever leads. */
     const byCatch = (this.caught - CFG.DUSK_CATCH) / (CFG.NIGHT_CATCH - CFG.DUSK_CATCH);
     const byScore = (this.score - CFG.DUSK_SCORE) / (CFG.NIGHT_SCORE - CFG.DUSK_SCORE);
-    const t = clamp(Math.max(byCatch, byScore), 0, 1);
-    this.night = damp(this.night, easeOutCubic(t), 1.6, dt);
+    this.night = damp(this.night, clamp(Math.max(byCatch, byScore), 0, 1), 1.6, dt);
     if (!this.announcedNight && this.night > 0.6){
       this.announcedNight = true;
-      this.popups.add(this.W / 2, this.H * 0.28, "NIGHT SHIFT", PALETTE.coolant, 54 * this.s);
-      this.popups.add(this.W / 2, this.H * 0.28 + 44 * this.s, "DOUBLE PAY · FASTER DROPS", PALETTE.paper, 20 * this.s, 600);
+      this.popups.add(this.W / 2, this.H * 0.3, "NIGHT SHIFT", PALETTE.coolant, 54 * this.s);
+      this.popups.add(this.W / 2, this.H * 0.3 + 44 * this.s, "DOUBLE PAY · FASTER THROWS", PALETTE.paper, 20 * this.s, 600);
       this.shake.kick(8);
       Audio_.phase();
     }
 
-    this.bucket.update(dt, this.W, this.H, this.s, this);
+    this.bucket.update(dt, this.view, this);
 
-    /* power-up timers */
     for (const k of ["magnet", "titanium"]){
       if (this.power[k] > 0){
         this.power[k] -= dt;
         if (this.power[k] <= 0){
           this.power[k] = 0;
-          this.popups.add(this.bucket.x, this.bucket.y - 70 * this.s,
-            (k === "magnet" ? "FIELD" : "FRAME") + " OFFLINE", PALETTE.concrete, 17 * this.s, 600);
+          const [px, py] = this.view.project(this.bucket.x, 1.5, CFG.Z_CATCH);
+          this.popups.add(px, py, (k === "magnet" ? "FIELD" : "FRAME") + " OFFLINE", PALETTE.concrete, 17 * this.s, 600);
         }
       }
     }
 
-    /* spawn director */
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0){
       this.spawn();
       this.spawnTimer = this.spawnInterval * rand(0.82, 1.18);
     }
     this.powerTimer -= dt;
-    if (this.powerTimer <= 0){
-      this.spawnPower();
-      this.powerTimer = rand(11, 17);
-    }
+    if (this.powerTimer <= 0){ this.spawnPower(); this.powerTimer = rand(11, 17); }
 
-    /* combo decay */
     if (this.comboTimer > 0){
       this.comboTimer -= dt;
       if (this.comboTimer <= 0 && this.combo > 0){ this.combo = 0; this.nextStreak = 0; }
     }
 
-    /* items + collision */
-    const mouth = this.bucket.mouth(this.s);
-    const floor = this.H * CFG.FLOOR_Y;
+    /* Everything resolves on the catch line: one clean test per piece. */
+    const limit = this.view.playW;
     for (let i = this.items.length - 1; i >= 0; i--){
       const it = this.items[i];
-      it.update(dt, this.s, this);
-
-      const overlapX = it.x + it.r * 0.55 > mouth.x0 && it.x - it.r * 0.55 < mouth.x1;
-      const overlapY = it.y + it.r > mouth.y0 && it.y - it.r * 0.6 < mouth.y1;
-      if (it.vy > 0 && overlapX && overlapY){
-        if (it.kind === "material") this.award(it);
-        else if (it.kind === "power") this.grabPower(it);
-        else if (this.power.titanium > 0) this.smashHazard(it);
-        else this.takeHit(it);
-        this.items.splice(i, 1);
-        continue;
-      }
-      if (it.y - it.r > floor){
-        if (it.kind === "material") this.missMaterial(it);
-        else if (it.kind === "hazard") this.fx.dust(it.x, floor, "#B04030");
+      it.update(dt, this);
+      it.x = clamp(it.x, -limit, limit);
+      if (it.z <= CFG.Z_CATCH){
+        const caught = Math.abs(it.x - this.bucket.x) <= this.bucket.halfW + it.def.r * 0.55;
+        if (caught){
+          if (it.kind === "material") this.award(it);
+          else if (it.kind === "power") this.grabPower(it);
+          else if (this.power.titanium > 0) this.smashHazard(it);
+          else this.takeHit(it);
+        } else if (it.kind === "material"){
+          this.missMaterial(it);
+        } else if (it.kind === "hazard"){
+          const [sx, sy, sc] = this.view.project(it.x, 0, CFG.Z_CATCH);
+          this.fx.dust(sx, sy, "#8C3A2E", sc / 220);
+        }
         this.items.splice(i, 1);
       }
     }
   }
 
-  /* ---------------------------------------------------------------- draw */
+  /* ----------------------------------------------------------------- draw */
   draw(){
-    const ctx = this.ctx, W = this.W, H = this.H, s = this.s;
+    const ctx = this.ctx, W = this.W, H = this.H, s = this.s, view = this.view;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
 
@@ -1433,42 +1571,39 @@ class Game {
     ctx.rotate(this.shake.rot);
     ctx.translate(-W / 2 + this.shake.x, -H / 2 + this.shake.y);
 
-    this.bg.draw(ctx, W, H, this.night, s);
+    this.arena.draw(ctx, view, this.night, s);
 
-    /* the catch line: hazard tape marking the point of no return */
-    const floor = H * CFG.FLOOR_Y;
-    ctx.save();
-    ctx.globalAlpha = 0.28 + this.catchGlow * 0.2;
-    ctx.strokeStyle = PALETTE.hivis;
-    ctx.lineWidth = 2 * s;
-    ctx.setLineDash([14 * s, 12 * s]);
-    ctx.lineDashOffset = -this.time * 40 * s;
-    ctx.beginPath(); ctx.moveTo(0, floor); ctx.lineTo(W, floor); ctx.stroke();
-    ctx.restore();
+    const sorted = this.items.slice().sort((a, b) => b.z - a.z);
+    for (const it of sorted) it.drawMarker(ctx, view, s);
+    for (const it of sorted) it.drawShadow(ctx, view, this.night);
+    this.arena.catchLine(ctx, view, this.night, s, this.catchGlow);
+    for (const it of sorted) it.draw(ctx, view, this.night, s, this.time);
 
-    if (this.state !== "menu") this.bucket.draw(ctx, s, this, this.time);
-    for (const it of this.items) it.draw(ctx, s, this.night, this.time);
+    if (this.state !== "menu") this.bucket.draw(ctx, view, s, this, this.time);
     this.fx.draw(ctx);
     ctx.restore();
 
-    /* damage vignette — sits above the shake so it never judders */
+    /* --- grade: night wash, damage vignette, corner falloff -------------- */
+    if (this.night > 0.02){
+      ctx.fillStyle = `rgba(26,14,6,${this.night * 0.16})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+    const vig = ctx.createRadialGradient(W / 2, H * 0.55, H * 0.32, W / 2, H * 0.55, H * 0.95);
+    vig.addColorStop(0, "rgba(0,0,0,0)");
+    vig.addColorStop(1, "rgba(0,0,0,.55)");
+    ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+
     if (this.hitFlash > 0){
-      const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.28, W / 2, H / 2, H * 0.78);
+      const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.26, W / 2, H / 2, H * 0.8);
       g.addColorStop(0, "rgba(224,72,58,0)");
       g.addColorStop(1, `rgba(224,72,58,${0.5 * this.hitFlash})`);
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    }
-    /* night grade + scanline grain keep the two shifts visually distinct */
-    if (this.night > 0.02){
-      ctx.fillStyle = `rgba(10,16,30,${this.night * 0.20})`;
-      ctx.fillRect(0, 0, W, H);
     }
 
     this.popups.draw(ctx);
     if (this.state !== "menu") this.drawHUD(ctx, W, H, s);
   }
 
-  /* ------------------------------------------------------------ 7. HUD */
   drawHUD(ctx, W, H, s){
     const pad = Math.max(10, 16 * s);
     const narrow = W < 660;
