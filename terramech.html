@@ -773,18 +773,72 @@ function makePrism(sides, radius, length, axis = "y", twist = 0){
   return { verts, faces };
 }
 
+/* Key light: high, front-left. Faces pointing at it are brightest, and every
+   solid throws its silhouette to the right and away — which is what actually
+   plants an object on a surface. */
 const LIGHT = (() => { const v = [-0.34, 0.86, -0.38]; const m = Math.hypot(...v); return v.map(c => c / m); })();
 
-/* Transform → cull → depth-sort → paint. One prism costs a handful of fills. */
-function drawMesh(ctx, view, mesh, pos, yaw, pitch, opt){
+/* Andrew's monotone chain — used to collapse a projected solid into one
+   silhouette so overlapping faces cannot stack up their shadow alpha. */
+function hull(pts){
+  if (pts.length < 3) return pts;
+  const p = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [];
+  for (const q of p){ while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+  const hi = [];
+  for (let i = p.length - 1; i >= 0; i--){ const q = p[i]; while (hi.length >= 2 && cross(hi[hi.length - 2], hi[hi.length - 1], q) <= 0) hi.pop(); hi.push(q); }
+  lo.pop(); hi.pop();
+  return lo.concat(hi);
+}
+
+/* Shared vertex transform: local mesh space -> world. */
+function meshWorld(mesh, pos, yaw, pitch){
   const cy = Math.cos(yaw), sy = Math.sin(yaw);
   const cp = Math.cos(pitch), sp = Math.sin(pitch);
-  const world = mesh.verts.map(v => {
-    let [x, y, z] = v;
-    let x1 = x * cy + z * sy, z1 = -x * sy + z * cy;   // yaw about Y
-    let y1 = y * cp - z1 * sp; z1 = y * sp + z1 * cp;  // pitch about X
+  return mesh.verts.map(v => {
+    const [x, y, z] = v;
+    const x1 = x * cy + z * sy;
+    let z1 = -x * sy + z * cy;
+    const y1 = y * cp - z1 * sp;
+    z1 = y * sp + z1 * cp;
     return [x1 + pos[0], y1 + pos[1], z1 + pos[2]];
   });
+}
+
+/* Planar projected shadow: slide every vertex down the light ray onto y=0,
+   take the silhouette, and lay it on the deck with a soft outer pass. */
+function drawCastShadow(ctx, view, world, strength = 1){
+  const pts = [];
+  for (const w of world){
+    const t = Math.max(0, w[1]) / LIGHT[1];
+    const p = view.project(w[0] - LIGHT[0] * t, 0.004, w[2] - LIGHT[2] * t);
+    pts.push([p[0], p[1]]);
+  }
+  const h = hull(pts);
+  if (h.length < 3) return;
+  let cx = 0, cy2 = 0;
+  for (const q of h){ cx += q[0]; cy2 += q[1]; }
+  cx /= h.length; cy2 /= h.length;
+  ctx.save();
+  /* penumbra first, then the core — cheaper and steadier than a blur filter */
+  for (const [grow, alpha] of [[1.26, 0.10], [1.11, 0.12], [1.0, 0.20]]){
+    ctx.beginPath();
+    h.forEach((q, i) => {
+      const x = cx + (q[0] - cx) * grow, y = cy2 + (q[1] - cy2) * grow;
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    });
+    ctx.closePath();
+    ctx.fillStyle = `rgba(26,14,6,${alpha * strength})`;
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* Transform -> cull -> depth sort -> paint. Fills are opaque: a solid that
+   lets the deck through reads as a decal, not a block. */
+function drawMesh(ctx, view, mesh, pos, yaw, pitch, opt){
+  const world = opt.world || meshWorld(mesh, pos, yaw, pitch);
   const screen = world.map(v => view.project(v[0], v[1], v[2]));
   const cam = [0, view.camH, -CFG.CAM_D];
 
@@ -793,23 +847,25 @@ function drawMesh(ctx, view, mesh, pos, yaw, pitch, opt){
     const a = world[f[0]], b = world[f[1]], c = world[f[2]];
     const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
     const v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
-    const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+    /* outward normal: the prism builder winds its faces the other way round,
+       so cross(v, u) is what points out of the solid */
+    const n = [v[1] * u[2] - v[2] * u[1], v[2] * u[0] - v[0] * u[2], v[0] * u[1] - v[1] * u[0]];
     const nm = Math.hypot(...n) || 1;
     n[0] /= nm; n[1] /= nm; n[2] /= nm;
-    const view0 = [a[0] - cam[0], a[1] - cam[1], a[2] - cam[2]];
-    if (n[0] * view0[0] + n[1] * view0[1] + n[2] * view0[2] > 0) continue;   // back face
+    if (n[0] * (a[0] - cam[0]) + n[1] * (a[1] - cam[1]) + n[2] * (a[2] - cam[2]) > 0) continue;
     let depth = 0;
     for (const i of f) depth += world[i][2];
     depth /= f.length;
     const lam = Math.max(0, n[0] * LIGHT[0] + n[1] * LIGHT[1] + n[2] * LIGHT[2]);
-    drawList.push({ f, depth, k: 0.30 + 0.85 * lam, up: n[1] });
+    /* ambient is sky-weighted: upward faces pick up fill light, undersides do not */
+    const amb = 0.16 + 0.12 * Math.max(0, n[1]);
+    drawList.push({ f, depth, k: amb + 1.02 * lam, up: n[1] });
   }
   drawList.sort((p, q) => q.depth - p.depth);
 
-  const lw = clamp(opt.edge * view.scaleAt(pos[2]), 0.7, 3.4);   // edge is in metres
-  const haze = clamp((pos[2] - 3) / 30, 0, 1) * (opt.haze ?? 0.42);
+  const lw = clamp(opt.edge * view.scaleAt(pos[2]), 0.7, 3.0);
+  const haze = clamp((pos[2] - 6) / 34, 0, 1) * (opt.haze ?? 0.16);
   for (const d of drawList){
-    /* face bounds drive a shallow gradient — flat fills read as paper */
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     ctx.beginPath();
     d.f.forEach((i, k) => {
@@ -822,18 +878,19 @@ function drawMesh(ctx, view, mesh, pos, yaw, pitch, opt){
 
     const base = d.k * opt.light;
     const gr = ctx.createLinearGradient(x0, y0, x1, y1);
-    gr.addColorStop(0, hazed(shadeRGB(opt.color, base * 1.16, opt.lift || 0), haze));
-    gr.addColorStop(1, hazed(shadeRGB(opt.color, base * 0.80, opt.lift || 0), haze));
+    gr.addColorStop(0, hazed(shadeRGB(opt.color, base * 1.14, opt.lift || 0), haze));
+    gr.addColorStop(1, hazed(shadeRGB(opt.color, base * 0.74, opt.lift || 0), haze));
     ctx.fillStyle = gr;
     ctx.fill();
-
-    if (opt.edgeColor){
-      /* upward-facing edges catch the key light; the rest stay as seams */
-      ctx.strokeStyle = d.up > 0.55 ? opt.edgeColor : rgba("#000000", 0.22 + haze * 0.2);
-      ctx.lineWidth = d.up > 0.55 ? lw : Math.max(0.6, lw * 0.7);
-      ctx.lineJoin = "round";
-      ctx.stroke();
-    }
+    /* every face gets a hairline of its own colour first, so no deck shows
+       through the seams, then a dark contour for definition */
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = gr;
+    ctx.lineWidth = 1.1;
+    ctx.stroke();
+    ctx.strokeStyle = d.up > 0.55 ? rgba(opt.edgeColor || "#FFFFFF", 0.30) : "rgba(10,7,4,.42)";
+    ctx.lineWidth = lw;
+    ctx.stroke();
   }
 }
 
@@ -935,9 +992,9 @@ class Arena {
     const [, nearY] = view.project(0, 0, nearZ);
     const [, farY]  = view.project(0, 0, farZ);
     const g = ctx.createLinearGradient(0, farY, 0, nearY);
-    g.addColorStop(0, mixHex("#6B5C48", "#3A2B1C", night));
-    g.addColorStop(0.55, mixHex("#4C4335", "#281E14", night));
-    g.addColorStop(1, mixHex("#2A251E", "#14100C", night));
+    g.addColorStop(0, mixHex("#8A6746", "#3E2A18", night));
+    g.addColorStop(0.55, mixHex("#6E5138", "#2A1C11", night));
+    g.addColorStop(1, mixHex("#412D1F", "#150F0A", night));
     this.quad(ctx, view, [[-wallX, 0, nearZ], [wallX, 0, nearZ], [wallX, 0, farZ], [-wallX, 0, farZ]], g);
 
     /* work light pooled over the yard, so the deck reads brighter than the rim */
@@ -951,6 +1008,52 @@ class Arena {
     this.quad(ctx, view, [[-wallX, 0, nearZ], [wallX, 0, nearZ], [wallX, 0, farZ], [-wallX, 0, farZ]], pool);
     ctx.restore();
 
+    /* mottling: worked earth is never one colour. Patches are placed in world
+       space, so they foreshorten with the deck. */
+    ctx.save();
+    ctx.beginPath();
+    [[-wallX, 0, nearZ], [wallX, 0, nearZ], [wallX, 0, farZ], [-wallX, 0, farZ]]
+      .forEach((p, i) => { const q = view.project(p[0], p[1], p[2]); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); });
+    ctx.closePath();
+    ctx.clip();
+
+    let seed = 7;
+    const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+    for (let i = 0; i < 150; i++){
+      const wx = (rnd() * 2 - 1) * hw, wz = nearZ + rnd() * (farZ - nearZ);
+      const [px, py, ps] = view.project(wx, 0, wz);
+      const rad = (0.5 + rnd() * 1.9) * ps * 0.5;
+      const warm = rnd() > 0.45;
+      const gsp = ctx.createRadialGradient(px, py, 0, px, py, rad);
+      gsp.addColorStop(0, warm ? `rgba(196,120,64,${0.06 + rnd() * 0.07})`
+                               : `rgba(38,24,14,${0.05 + rnd() * 0.08})`);
+      gsp.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = gsp;
+      ctx.beginPath();
+      ctx.ellipse(px, py, rad, rad * (view.camH / (wz + CFG.CAM_D)) * 1.1, 0, 0, TAU);
+      ctx.fill();
+    }
+
+    /* occlusion where the walls meet the deck, and a darkened far corner */
+    for (const sgn of [-1, 1]){
+      const a1 = view.project(sgn * wallX, 0, nearZ), a2 = view.project(sgn * wallX, 0, farZ);
+      const b1 = view.project(sgn * wallX * 0.72, 0, nearZ), b2 = view.project(sgn * wallX * 0.72, 0, farZ);
+      const ag = ctx.createLinearGradient(a1[0], a1[1], b1[0], b1[1]);
+      ag.addColorStop(0, "rgba(10,6,3,.55)");
+      ag.addColorStop(1, "rgba(10,6,3,0)");
+      ctx.fillStyle = ag;
+      ctx.beginPath();
+      ctx.moveTo(a1[0], a1[1]); ctx.lineTo(a2[0], a2[1]); ctx.lineTo(b2[0], b2[1]); ctx.lineTo(b1[0], b1[1]);
+      ctx.closePath(); ctx.fill();
+    }
+    const fc = view.project(0, 0, farZ);
+    const fgd = ctx.createLinearGradient(0, fc[1] - H * 0.02, 0, fc[1] + H * 0.22);
+    fgd.addColorStop(0, "rgba(10,6,3,.5)");
+    fgd.addColorStop(1, "rgba(10,6,3,0)");
+    ctx.fillStyle = fgd;
+    ctx.fillRect(0, fc[1] - H * 0.05, W, H * 0.3);
+    ctx.restore();
+
     /* surface tooth + the swept arcs a machine leaves on a working deck */
     ctx.save();
     ctx.beginPath();
@@ -960,11 +1063,11 @@ class Arena {
     ctx.clip();
     if (!this._grainPattern) this._grainPattern = ctx.createPattern(this.grain, "repeat");   // cache ctx
     ctx.globalCompositeOperation = "overlay";
-    ctx.globalAlpha = 0.16;
+    ctx.globalAlpha = 0.24;
     ctx.fillStyle = this._grainPattern;
     ctx.fillRect(0, 0, W, H);
     ctx.globalCompositeOperation = "source-over";
-    ctx.globalAlpha = 0.055;
+    ctx.globalAlpha = 0.085;
     ctx.strokeStyle = mixHex("#FFF6E2", "#FFD9A0", night);
     for (let i = 0; i < 9; i++){
       const zc = 2 + i * 2.6, r = pw * (0.5 + (i % 3) * 0.22);
@@ -980,7 +1083,7 @@ class Arena {
     ctx.restore();
 
     /* survey grid */
-    const gridCol = mixHex("#9C8F76", "#6A5232", night);
+    const gridCol = mixHex("#B09071", "#6A5232", night);
     for (let i = -4; i <= 4; i++){
       this.line(ctx, view, [(pw / 4) * i, 0, nearZ], [(pw / 4) * i, 0, farZ], gridCol, 1, 0.16);
     }
@@ -992,7 +1095,7 @@ class Arena {
     ctx.save();
     ctx.globalAlpha = 0.16;
     this.quad(ctx, view, [[-pw, 0, nearZ], [pw, 0, nearZ], [pw, 0, farZ - 0.5], [-pw, 0, farZ - 0.5]],
-      mixHex("#C8A87A", "#8A5A2A", night));
+      mixHex("#D19A62", "#95601F", night));
     ctx.restore();
 
     /* painted markings + stencilled yard mark */
@@ -1078,11 +1181,18 @@ class Arena {
       for (let bay = 0; bay < 5; bay++){
         const z = 4.2 + bay * 4.4;
         if (z > farZ - 1.5) break;
-        const [px, py, ps] = view.project(sgn * wallX, CFG.WALL_H * 0.42, z);
+        const [px, py, ps] = view.project(sgn * wallX, CFG.WALL_H * 0.45, z);
         if (ps > view.scaleAt(3)) continue;
-        ctx.globalAlpha = 0.20 + night * 0.14;
-        ctx.fillStyle = mixHex("#C9CFD6", "#8FA0BA", night);
-        ctx.font = `700 ${0.55 * ps}px "Chakra Petch", sans-serif`;
+        /* a mounted board, then the type on it */
+        ctx.globalAlpha = 1;
+        this.quad(ctx, view, [[sgn * wallX, CFG.WALL_H * 0.24, z - 1.55],
+                              [sgn * wallX, CFG.WALL_H * 0.70, z - 1.55],
+                              [sgn * wallX, CFG.WALL_H * 0.70, z + 1.55],
+                              [sgn * wallX, CFG.WALL_H * 0.24, z + 1.55]],
+                  shade("#12171E", lerp(1, 0.5, night)), rgba(PALETTE.hivis, 0.16), 1);
+        ctx.globalAlpha = 0.5 + night * 0.25;
+        ctx.fillStyle = mixHex("#D3D9E0", "#C8B98E", night);
+        ctx.font = `700 ${0.46 * ps}px "Chakra Petch", sans-serif`;
         ctx.save();
         ctx.translate(px, py);
         ctx.scale(0.42, 1);           // foreshortened across the wall's length
@@ -1203,20 +1313,23 @@ class FallingItem {
     this.glow = Math.max(0, this.glow - dt * 2);
   }
 
-  /* Ground shadow — the player's main depth cue for where a piece will land. */
+  /* Cast shadow + contact darkening: the two things that put a solid on a
+     surface. The transformed vertices are kept for the mesh pass. */
   drawShadow(ctx, view, night){
-    const [sx, sy, s] = view.project(this.x, 0, this.z);
-    const lift = clamp(this.y / 1.1, 0, 1);
-    const r = this.def.r * s * (0.75 + lift * 0.9);
-    const ry = r * (view.camH / (this.z + CFG.CAM_D)) * 1.15;
-    const a = (0.40 - lift * 0.20) * (1 - night * 0.3);
+    this._world = meshWorld(this.def.mesh, [this.x, this.y, this.z], this.yaw, this.pitch);
+    drawCastShadow(ctx, view, this._world, 1 - night * 0.2);
+
+    const [sx, sy, sc] = view.project(this.x, 0, this.z);
+    const lift = clamp((this.y - this.def.rest) / 1.1, 0, 1);
+    const r = this.def.r * sc * (0.62 + lift * 0.5);
+    const a = (0.42 - lift * 0.26) * (1 - night * 0.22);
+    if (a <= 0.01) return;
     ctx.save();
     ctx.translate(sx, sy);
-    ctx.scale(1, ry / r);
-    const sg = ctx.createRadialGradient(0, 0, r * (0.24 - lift * 0.18), 0, 0, r);
-    sg.addColorStop(0, `rgba(6,8,11,${a})`);
-    sg.addColorStop(0.65, `rgba(6,8,11,${a * 0.5})`);
-    sg.addColorStop(1, "rgba(6,8,11,0)");
+    ctx.scale(1, (view.camH / (this.z + CFG.CAM_D)) * 1.1);
+    const sg = ctx.createRadialGradient(0, 0, r * 0.18, 0, 0, r);
+    sg.addColorStop(0, `rgba(16,9,4,${a})`);
+    sg.addColorStop(1, "rgba(16,9,4,0)");
     ctx.fillStyle = sg;
     ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
     ctx.restore();
@@ -1253,9 +1366,9 @@ class FallingItem {
       const [sx, sy, sc] = view.project(this.x, this.y, this.z);
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
-      const rr = sc * 1.5;
+      const rr = sc * 1.25;
       const gg = ctx.createRadialGradient(sx, sy, 0, sx, sy, rr);
-      gg.addColorStop(0, rgba(this.def.color, 0.5));
+      gg.addColorStop(0, rgba(this.def.color, 0.34));
       gg.addColorStop(1, rgba(this.def.color, 0));
       ctx.fillStyle = gg;
       ctx.beginPath(); ctx.arc(sx, sy, rr, 0, TAU); ctx.fill();
@@ -1263,13 +1376,12 @@ class FallingItem {
     }
 
     drawMesh(ctx, view, this.def.mesh, [this.x, this.y, this.z], this.yaw, this.pitch, {
+      world: this._world,
       color: this.def.color,
-      light: lerp(1, 0.82, night) + this.glow * 0.5,
-      lift: emissive ? 0.12 : 0,
-      edge: 0.022,
-      edgeColor: emissive ? rgba(this.def.color, 0.95)
-                : this.kind === "hazard" ? rgba("#FF9A80", 0.5)
-                : rgba("#FFF3C4", 0.38),
+      light: lerp(1, 0.86, night) + this.glow * 0.4,
+      lift: emissive ? 0.10 : 0,
+      edge: 0.020,
+      edgeColor: emissive ? "#FFFFFF" : "#FFF6D8",
     });
 
     /* power-ups carry their glyph as a camera-facing billboard */
@@ -1351,6 +1463,13 @@ class Bucket {
       ctx.fillStyle = fill; ctx.fill();
       ctx.globalAlpha = 1;
     };
+
+    /* the rig plants itself with the same projected silhouette as the cargo */
+    const corners = [];
+    for (const zz of [zN, zF]) for (const yy of [0, h]) for (const xx of [-hw, hw]){
+      corners.push([this.x + xx + (yy > 0 ? lean : 0), yy, zz]);
+    }
+    drawCastShadow(ctx, view, corners, 0.9);
 
     /* pooled light under the rig, like a work lamp on the deck */
     const [gx, gy, gs] = P(this.x, 0, CFG.Z_CATCH);
