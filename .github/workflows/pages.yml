@@ -1,0 +1,42 @@
+name: Deploy site
+
+# The site is one static file, so there is nothing to build: check out the
+# repository and hand it to Pages. `enablement` turns Pages on the first time
+# this runs, so the site goes live without anyone opening repository settings.
+
+on:
+  push:
+    branches: [claude/terramech-arcade-game-jvh63c]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

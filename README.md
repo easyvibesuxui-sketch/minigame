@@ -1,9 +1,11 @@
 # TerraMech
 
+**Live: https://easyvibesuxui-sketch.github.io/minigame/**
+
 A single-file, dependency-free brand site for a **fictional** heavy equipment
-company, built around a playable operator trial. Open `terramech.html` in any
-modern browser or publish it as a Claude Artifact — no build step, no external
-asset, no network call.
+company, built around a playable operator trial. The whole site is `index.html` —
+open it in any modern browser, or let the Pages workflow serve it. No build step,
+no external asset, no network call beyond the Google Fonts stylesheet.
 
 TerraMech does not exist. Its history, machines, people and contact details were
 invented for this concept.
