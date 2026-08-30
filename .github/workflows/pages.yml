@@ -1,8 +1,10 @@
 name: Deploy site
 
-# The site is one static file, so there is nothing to build: check out the
-# repository and hand it to Pages. `enablement` turns Pages on the first time
-# this runs, so the site goes live without anyone opening repository settings.
+# The site is one static file, so there is nothing to build. It is split into
+# two jobs on purpose: a job that declares `environment: github-pages` cannot
+# start until that environment exists, and the environment only exists once
+# Pages is switched on. So the first job turns Pages on (and uploads the site),
+# and only then does the deploy job — the one bound to the environment — run.
 
 on:
   push:
@@ -19,15 +21,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  package:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure Pages
+      - name: Switch Pages on if it is not already
         uses: actions/configure-pages@v5
         with:
           enablement: true
@@ -37,6 +36,13 @@ jobs:
         with:
           path: .
 
+  deploy:
+    needs: package
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
