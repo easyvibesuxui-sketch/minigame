@@ -707,7 +707,8 @@ class Bloom {
       this.ok = this.ctx.filter === "blur(2px)";
       this.ctx.filter = "none";
     }
-    this.scale = 0.24;
+    this.scale = 0.22;
+    this.frame = 0;
   }
   resize(W, H){
     if (!this.ok) return;
@@ -719,16 +720,20 @@ class Bloom {
      anything that must stay crisp (popups, HUD). */
   apply(ctx, src, W, H, strength){
     if (!this.ok || strength <= 0) return;
-    const b = this.ctx;
-    b.setTransform(1, 0, 0, 1, 0, 0);
-    b.clearRect(0, 0, this.c.width, this.c.height);
-    b.filter = `brightness(1.08) contrast(3.4) blur(${this.blur}px)`;
-    b.drawImage(src, 0, 0, this.c.width, this.c.height);
-    b.filter = "none";
+    /* The threshold-and-blur is the expensive half and the glow is soft, so it
+       is refreshed on alternate frames and composited every frame. */
+    if ((this.frame++ & 1) === 0){
+      const b = this.ctx;
+      b.setTransform(1, 0, 0, 1, 0, 0);
+      b.clearRect(0, 0, this.c.width, this.c.height);
+      b.filter = `brightness(1.08) contrast(3.4) blur(${this.blur}px)`;
+      b.drawImage(src, 0, 0, this.c.width, this.c.height);
+      b.filter = "none";
+    }
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
     ctx.globalAlpha = strength;
-    ctx.imageSmoothingQuality = "high";
+    ctx.imageSmoothingQuality = "low";   // the source is already a blur
     ctx.drawImage(this.c, 0, 0, W, H);
     ctx.restore();
   }
@@ -930,12 +935,16 @@ class Arena {
       this.cache.width = w; this.cache.height = h;
       this.cachedNight = -1;
     }
-    if (Math.abs(night - this.cachedNight) > 0.012){
+    /* Quantise the cache key: the light level moves continuously through a
+       shift, and repainting the whole yard on every step of it costs more than
+       the yard is worth. 24 steps across the transition is invisible. */
+    const q = Math.round(night / 0.042) * 0.042;
+    if (q !== this.cachedNight){
       const c = this.cctx;
       c.setTransform(dpr, 0, 0, dpr, 0, 0);
       c.clearRect(0, 0, view.W, view.H);
-      this.paint(c, view, night, s);
-      this.cachedNight = night;
+      this.paint(c, view, q, s);
+      this.cachedNight = q;
     }
     ctx.drawImage(this.cache, 0, 0, view.W, view.H);
   }
@@ -1176,7 +1185,8 @@ class Arena {
         const face = shade("#212328", lerp(1, 0.42, night));
         for (let z = 0.6; z < farZ - 0.4; z += 0.78){
           const y1 = y0 + 0.52, d = 0.26;
-          if (view.project(sgn * rx, y1, z)[1] < -40) continue;
+          const pj = view.project(sgn * rx, y1, z);
+          if (pj[1] < -40 || pj[2] * 0.46 < 3) continue;
           this.quad(ctx, view, [[sgn * rx, y1, z - d], [sgn * (rx + 0.46), y1, z - d],
                                 [sgn * (rx + 0.46), y1, z + d], [sgn * rx, y1, z + d]], top);
           this.quad(ctx, view, [[sgn * rx, y1, z - d], [sgn * rx, y1 + 0.3, z - d],
