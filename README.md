@@ -2,6 +2,12 @@
 
 **Live: https://easyvibesuxui-sketch.github.io/minigame/**
 
+Served by GitHub Pages from the root of `main`, so pushing `index.html` to
+`main` updates the live site — there is no build step and no deploy workflow.
+(Pages on this repository uses the legacy branch source; the Actions token is
+not permitted to change that, so an Actions-based deploy would need the source
+switched to "GitHub Actions" under Settings → Pages by hand.)
+
 A single-file, dependency-free brand site for a **fictional** heavy equipment
 company, built around a playable operator trial. The whole site is `index.html` —
 open it in any modern browser, or let the Pages workflow serve it. No build step,
