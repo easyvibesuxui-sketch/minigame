@@ -31,18 +31,18 @@ jobs:
         with:
           enablement: true
 
-      - name: Report what the Pages API says
+      - name: Point Pages at this branch
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           api="https://api.github.com/repos/${{ github.repository }}/pages"
+          echo "--- PUT /pages source -> ${{ github.ref_name }} ---"
+          curl -sS -X PUT -w '\nHTTP %{http_code}\n' -H "Authorization: Bearer $GH_TOKEN" \
+               -H "Accept: application/vnd.github+json" "$api" \
+               -d '{"source":{"branch":"${{ github.ref_name }}","path":"/"}}' || true
           echo "--- GET /pages ---"
           curl -sS -w '\nHTTP %{http_code}\n' -H "Authorization: Bearer $GH_TOKEN" \
                -H "Accept: application/vnd.github+json" "$api" || true
-          echo "--- POST /pages (build_type=workflow) ---"
-          curl -sS -X POST -w '\nHTTP %{http_code}\n' -H "Authorization: Bearer $GH_TOKEN" \
-               -H "Accept: application/vnd.github+json" "$api" \
-               -d '{"build_type":"workflow"}' || true
 
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
