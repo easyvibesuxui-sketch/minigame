@@ -9,18 +9,17 @@
    any host ground.
 --------------------------------------------------------------------------- */
 :root{
-  --asphalt:#1C1E21;
-  --asphalt-deep:#141619;
-  --steel:#25282C;
-  --concrete:#3B3C36;        /* warm, yellow-biased neutral */
-  --concrete-dim:#6E7066;
-  --hivis:#F4D03F;
-  --hivis-deep:#C9A722;
-  --hazard:#E0483A;
-  --coolant:#5FD3E0;
-  --paper:#E9EDF0;
-  --plate-shadow:0 2px 0 #0c0d0f, 0 18px 40px -18px rgba(0,0,0,.9);
-  --stripe:repeating-linear-gradient(-45deg,var(--hivis) 0 10px,var(--asphalt) 10px 20px);
+  --ink:#0A0A0C;             /* the brand's black */
+  --ink-deep:#050506;
+  --steel:#1A1B1F;
+  --concrete:#3A3B3F;        /* neutral biased a touch toward the red */
+  --concrete-dim:#71737A;
+  --brand:#E01B22;           /* TerraMech red */
+  --brand-deep:#8E1015;
+  --brand-lift:#FF4A4F;
+  --paper:#F2F3F5;
+  --plate-shadow:0 2px 0 #050506, 0 18px 46px -18px rgba(0,0,0,.95);
+  --stripe:repeating-linear-gradient(-45deg,var(--brand) 0 10px,var(--ink) 10px 20px);
   --font-display:"Chakra Petch",ui-sans-serif,system-ui,sans-serif;
   --font-label:"Barlow Condensed","Chakra Petch",ui-sans-serif,sans-serif;
   --font-body:"Barlow",ui-sans-serif,system-ui,sans-serif;
@@ -32,7 +31,7 @@ body{
   margin:0;
   min-height:100vh;
   background:
-    radial-gradient(120% 80% at 50% 0%, #23262b 0%, var(--asphalt-deep) 62%, #0a0b0d 100%);
+    radial-gradient(120% 80% at 50% 0%, #2A2B2F 0%, var(--ink) 58%, #000 100%);
   color:var(--paper);
   font-family:var(--font-body);
   display:flex;
@@ -49,8 +48,8 @@ body{
   height:min(880px,calc(100vh - 2*clamp(8px,2vw,28px)));
   display:flex;
   flex-direction:column;
-  background:linear-gradient(180deg,#2b2e33,#1a1c20);
-  border:1px solid #43464c;
+  background:linear-gradient(180deg,#26272B,#0E0E10);
+  border:1px solid #3A3B40;
   border-radius:6px;
   padding:13px 10px 10px;
   box-shadow:var(--plate-shadow);
@@ -76,7 +75,7 @@ body{
   font-family:var(--font-display);font-weight:700;
   font-size:15px;letter-spacing:.24em;color:#6C7076;
 }
-.rig-mark b{color:var(--hivis);font-weight:700}
+.rig-mark b{color:var(--brand-lift);font-weight:700}
 .rig-id{
   font-family:var(--font-label);font-size:11px;letter-spacing:.22em;
   text-transform:uppercase;color:#565A60;
@@ -88,9 +87,9 @@ body{
   min-height:0;
   border-radius:3px;
   overflow:hidden;
-  background:#07090c;
+  background:#050506;
   border:1px solid #000;
-  box-shadow:inset 0 0 0 1px rgba(244,208,63,.08), inset 0 0 60px rgba(0,0,0,.6);
+  box-shadow:inset 0 0 0 1px rgba(224,27,34,.10), inset 0 0 60px rgba(0,0,0,.7);
 }
 canvas{display:block;width:100%;height:100%;touch-action:none;cursor:none}
 
@@ -112,9 +111,9 @@ canvas{display:block;width:100%;height:100%;touch-action:none;cursor:none}
   width:min(660px,100%);
   max-height:100%;
   overflow-y:auto;
-  background:linear-gradient(180deg,#212429,#181a1e);
-  border:1px solid #3d4046;
-  border-top:3px solid var(--hivis);
+  background:linear-gradient(180deg,#1C1D21,#0B0B0D);
+  border:1px solid #35363B;
+  border-top:3px solid var(--brand);
   border-radius:4px;
   padding:clamp(20px,3.4vw,34px);
   box-shadow:var(--plate-shadow);
@@ -122,7 +121,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none;cursor:none}
 }
 .plate::after{ /* rivets */
   content:"";position:absolute;inset:9px;border-radius:2px;
-  border:1px dashed rgba(244,208,63,.14);
+  border:1px dashed rgba(224,27,34,.18);
   pointer-events:none;
 }
 
@@ -132,7 +131,7 @@ canvas{display:block;width:100%;height:100%;touch-action:none;cursor:none}
   letter-spacing:.3em;
   font-size:12px;
   font-weight:600;
-  color:var(--hivis);
+  color:var(--brand-lift);
   margin:0 0 10px;
 }
 .eyebrow.muted{color:var(--concrete-dim)}
@@ -146,7 +145,7 @@ h1{
   margin:0 0 4px;
   text-wrap:balance;
 }
-h1 .mech{color:var(--hivis)}
+h1 .mech{color:var(--brand-lift)}
 h2{
   font-family:var(--font-display);
   font-weight:700;
@@ -168,7 +167,7 @@ h2{
 .legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:9px;margin:0 0 20px;padding:0;list-style:none}
 .legend li{
   display:flex;gap:10px;align-items:center;
-  background:#1b1e22;border:1px solid #33363b;border-radius:3px;padding:9px 11px;
+  background:#141518;border:1px solid #2C2D32;border-radius:3px;padding:9px 11px;
 }
 .legend svg{flex:none;width:30px;height:30px}
 .legend li>div{min-width:0}
@@ -187,26 +186,26 @@ h2{
 }
 kbd{
   font-family:var(--font-display);font-size:12px;
-  background:#2c3036;border:1px solid #474b52;border-bottom-width:2px;
+  background:#212226;border:1px solid #3D3E44;border-bottom-width:2px;
   border-radius:3px;padding:2px 7px;color:var(--paper);margin-right:5px;
 }
 
 .btn{
   font-family:var(--font-display);font-weight:700;
   font-size:19px;letter-spacing:.06em;text-transform:uppercase;
-  color:#17181a;background:var(--hivis);
-  border:none;border-bottom:4px solid var(--hivis-deep);
+  color:var(--paper);background:linear-gradient(180deg,var(--brand-lift),var(--brand));
+  border:none;border-bottom:4px solid var(--brand-deep);
   border-radius:3px;padding:14px 30px;cursor:pointer;
   transition:transform .12s ease,filter .12s ease,box-shadow .12s ease;
 }
-.btn:hover{filter:brightness(1.08);transform:translateY(-1px);box-shadow:0 8px 22px -10px var(--hivis)}
+.btn:hover{filter:brightness(1.08);transform:translateY(-1px);box-shadow:0 8px 22px -10px var(--brand)}
 .btn:active{transform:translateY(2px);border-bottom-width:2px}
-.btn:focus-visible{outline:3px solid var(--coolant);outline-offset:3px}
+.btn:focus-visible{outline:3px solid var(--paper);outline-offset:3px}
 .btn.ghost{
   background:transparent;color:var(--paper);
-  border:1px solid #4a4e55;border-bottom-width:3px;font-size:15px;padding:11px 20px;
+  border:1px solid #3D3E44;border-bottom-width:3px;font-size:15px;padding:11px 20px;
 }
-.btn.ghost:hover{border-color:var(--hivis);color:var(--hivis)}
+.btn.ghost:hover{border-color:var(--brand);color:var(--brand-lift)}
 .actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 
 /* game over readout */
@@ -216,23 +215,23 @@ kbd{
 .rank-badge .mark{
   flex:none;width:74px;height:74px;border-radius:3px;
   display:grid;place-items:center;
-  background:#1b1e22;border:2px solid var(--hivis);
-  box-shadow:inset 0 0 24px rgba(244,208,63,.16);
+  background:#141518;border:2px solid var(--brand);
+  box-shadow:inset 0 0 24px rgba(224,27,34,.20);
 }
 .rank-badge .mark svg{width:44px;height:44px}
 .record{
   display:inline-block;margin:0 0 12px;padding:5px 12px;
   font-family:var(--font-label);font-weight:700;font-size:13px;
   letter-spacing:.2em;text-transform:uppercase;
-  color:#17181a;background:var(--hivis);border-radius:2px;
+  color:var(--paper);background:var(--brand);border-radius:2px;
 }
 .record[hidden]{display:none}
 .stats{
   display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));
-  gap:1px;background:#33363b;border:1px solid #33363b;border-radius:3px;
+  gap:1px;background:#2C2D32;border:1px solid #2C2D32;border-radius:3px;
   margin:0 0 18px;overflow:hidden;
 }
-.stats div{background:#1b1e22;padding:11px 13px}
+.stats div{background:#141518;padding:11px 13px}
 .stats dt{
   font-family:var(--font-label);text-transform:uppercase;letter-spacing:.16em;
   font-size:11px;color:#82868c;margin:0 0 3px;
@@ -241,17 +240,17 @@ kbd{
   margin:0;font-family:var(--font-display);font-weight:700;font-size:24px;
   font-variant-numeric:tabular-nums;color:var(--paper);
 }
-.stats dd.hi{color:var(--hivis)}
+.stats dd.hi{color:var(--brand-lift)}
 
 .ladder{list-style:none;margin:0 0 20px;padding:0;display:flex;flex-direction:column;gap:5px}
 .ladder li{
   display:flex;align-items:baseline;gap:10px;
   font-family:var(--font-label);font-size:15px;letter-spacing:.05em;
-  text-transform:uppercase;color:#6d7178;padding:6px 10px;border-left:3px solid #33363b;
+  text-transform:uppercase;color:#6d7178;padding:6px 10px;border-left:3px solid #2C2D32;
 }
 .ladder li .req{margin-left:auto;font-variant-numeric:tabular-nums;font-size:13px}
 .ladder li.done{color:#a9adb2;border-left-color:var(--concrete-dim)}
-.ladder li.current{color:var(--hivis);border-left-color:var(--hivis);background:rgba(244,208,63,.07)}
+.ladder li.current{color:var(--brand-lift);border-left-color:var(--brand);background:rgba(224,27,34,.10)}
 .next-hint{font-size:13px;color:#8d9197;margin:-8px 0 18px}
 
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -285,19 +284,19 @@ kbd{
 
         <ul class="legend">
           <li>
-            <svg viewBox="0 0 32 32" fill="none" stroke="#F4D03F" stroke-width="2" stroke-linejoin="round"><rect x="4" y="10" width="24" height="12" rx="2"/><circle cx="10" cy="16" r="1.6" fill="#F4D03F" stroke="none"/><circle cx="22" cy="16" r="1.6" fill="#F4D03F" stroke="none"/></svg>
-            <div><b>Steel</b><span>Beams, pipes, plates. Points.</span></div>
+            <svg viewBox="0 0 32 32" fill="none" stroke="#E01B22" stroke-width="2" stroke-linejoin="round"><rect x="4" y="10" width="24" height="12" rx="2"/><circle cx="10" cy="16" r="1.6" fill="#E01B22" stroke="none"/><circle cx="22" cy="16" r="1.6" fill="#E01B22" stroke="none"/></svg>
+            <div><b>Payload</b><span>Beams, pipes, plates. Points.</span></div>
           </li>
           <li>
-            <svg viewBox="0 0 32 32" fill="none" stroke="#E0483A" stroke-width="2" stroke-linejoin="round"><path d="M9 8h14l2 16H7z"/><path d="M11 13h10M10 18h12"/></svg>
-            <div><b>Hazard</b><span>Catch one, lose a life.</span></div>
+            <svg viewBox="0 0 32 32" fill="none" stroke="#F2F3F5" stroke-width="2" stroke-linejoin="round"><path d="M9 8h14l2 16H7z"/><path d="M11 13h10M10 18h12"/></svg>
+            <div><b>Hazard</b><span>Striped drums. Catch one, lose a life.</span></div>
           </li>
           <li>
-            <svg viewBox="0 0 32 32" fill="none" stroke="#5FD3E0" stroke-width="2" stroke-linecap="round"><path d="M10 24V15a6 6 0 0112 0v9"/><path d="M10 24h4v-9M22 24h-4v-9"/></svg>
+            <svg viewBox="0 0 32 32" fill="none" stroke="#F2F3F5" stroke-width="2" stroke-linecap="round"><path d="M10 24V15a6 6 0 0112 0v9"/><path d="M10 24h4v-9M22 24h-4v-9"/></svg>
             <div><b>Magnet</b><span>Steers steel into the bucket.</span></div>
           </li>
           <li>
-            <svg viewBox="0 0 32 32" fill="none" stroke="#E9EDF0" stroke-width="2" stroke-linejoin="round"><path d="M16 5l10 5v8c0 6-5 8-10 9-5-1-10-3-10-9v-8z"/><path d="M12 16l3 3 6-6"/></svg>
+            <svg viewBox="0 0 32 32" fill="none" stroke="#F2F3F5" stroke-width="2" stroke-linejoin="round"><path d="M16 5l10 5v8c0 6-5 8-10 9-5-1-10-3-10-9v-8z"/><path d="M12 16l3 3 6-6"/></svg>
             <div><b>Titanium</b><span>Smash hazards, take no damage.</span></div>
           </li>
         </ul>
@@ -426,10 +425,13 @@ const RANKS = [
   { name:"TerraMech Master", sub:"Certified legend", at:14000, line:"The bucket is an extension of the arm." },
 ];
 
+/* One brand system: red, black, and the black-to-white ramp between them.
+   Red is TerraMech — payload, rig, rails. Danger is read as black-and-white
+   warning stripes, never as another hue. */
 const PALETTE = {
-  hivis:"#F4D03F", hivisDeep:"#C9A722", asphalt:"#1C1E21",
-  hazard:"#E0483A", coolant:"#5FD3E0", paper:"#E9EDF0",
-  concrete:"#6E7066", steel:"#8C9299",
+  brand:"#E01B22", brandLift:"#FF4A4F", brandDeep:"#8E1015",
+  ink:"#0A0A0C", graphite:"#26272B",
+  paper:"#F2F3F5", steel:"#9AA0A6", concrete:"#71737A",
 };
 
 const STREAKS = [
@@ -467,7 +469,7 @@ function shade(hex, k, lift = 0){
   return `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`;
 }
 /* Aerial perspective: far solids drift toward the light of the yard. */
-const HAZE = [96, 84, 66];
+const HAZE = [70, 72, 78];
 function hazed(c, amt){
   return `rgb(${lerp(c[0], HAZE[0], amt) | 0},${lerp(c[1], HAZE[1], amt) | 0},${lerp(c[2], HAZE[2], amt) | 0})`;
 }
@@ -838,7 +840,7 @@ function drawCastShadow(ctx, view, world, strength = 1){
       i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
     });
     ctx.closePath();
-    ctx.fillStyle = `rgba(26,14,6,${alpha * strength})`;
+    ctx.fillStyle = `rgba(0,0,0,${alpha * strength})`;
     ctx.fill();
   }
   ctx.restore();
@@ -868,7 +870,7 @@ function drawMesh(ctx, view, mesh, pos, yaw, pitch, opt){
     const lam = Math.max(0, n[0] * LIGHT[0] + n[1] * LIGHT[1] + n[2] * LIGHT[2]);
     /* ambient is sky-weighted: upward faces pick up fill light, undersides do not */
     const amb = 0.16 + 0.12 * Math.max(0, n[1]);
-    drawList.push({ f, depth, k: amb + 1.02 * lam, up: n[1] });
+    drawList.push({ f, depth, k: amb + 1.02 * lam, up: n[1], idx: mesh.faces.indexOf(f) });
   }
   drawList.sort((p, q) => q.depth - p.depth);
 
@@ -886,9 +888,10 @@ function drawMesh(ctx, view, mesh, pos, yaw, pitch, opt){
     ctx.closePath();
 
     const base = d.k * opt.light;
+    const tone = (opt.stripe && d.idx >= 0 && d.idx % 2 === 1) ? opt.stripe : opt.color;
     const gr = ctx.createLinearGradient(x0, y0, x1, y1);
-    gr.addColorStop(0, hazed(shadeRGB(opt.color, base * 1.14, opt.lift || 0), haze));
-    gr.addColorStop(1, hazed(shadeRGB(opt.color, base * 0.74, opt.lift || 0), haze));
+    gr.addColorStop(0, hazed(shadeRGB(tone, base * 1.14, opt.lift || 0), haze));
+    gr.addColorStop(1, hazed(shadeRGB(tone, base * 0.74, opt.lift || 0), haze));
     ctx.fillStyle = gr;
     ctx.fill();
     /* every face gets a hairline of its own colour first, so no deck shows
@@ -994,22 +997,24 @@ class Arena {
 
     /* The horizon sits far above the frame, so there is no sky: the far
        structure closes the top of the picture the way a stand does. */
-    ctx.fillStyle = mixHex("#15181C", "#080604", night);
+    ctx.fillStyle = mixHex("#0E0E11", "#040405", night);
     ctx.fillRect(0, 0, W, H);
 
     /* --- deck ------------------------------------------------------------ */
     const [, nearY] = view.project(0, 0, nearZ);
     const [, farY]  = view.project(0, 0, farZ);
     const g = ctx.createLinearGradient(0, farY, 0, nearY);
-    g.addColorStop(0, mixHex("#8A6746", "#3E2A18", night));
-    g.addColorStop(0.55, mixHex("#6E5138", "#2A1C11", night));
-    g.addColorStop(1, mixHex("#412D1F", "#150F0A", night));
+    /* the deck is the black-to-white ramp: graphite at the far end, falling
+       to near-black under the rig */
+    g.addColorStop(0, mixHex("#3A3D44", "#141519", night));
+    g.addColorStop(0.55, mixHex("#26282E", "#0C0D10", night));
+    g.addColorStop(1, mixHex("#101115", "#050506", night));
     this.quad(ctx, view, [[-wallX, 0, nearZ], [wallX, 0, nearZ], [wallX, 0, farZ], [-wallX, 0, farZ]], g);
 
     /* work light pooled over the yard, so the deck reads brighter than the rim */
     const [lx0, ly0] = view.project(0, 0, 9);
     const pool = ctx.createRadialGradient(lx0, ly0, 0, lx0, ly0, H * 0.75);
-    pool.addColorStop(0, `rgba(255,232,176,${0.11 - night * 0.03})`);
+    pool.addColorStop(0, `rgba(255,255,255,${0.13 - night * 0.04})`);
     pool.addColorStop(1, "rgba(0,0,0,0)");
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
@@ -1034,8 +1039,8 @@ class Arena {
       const rad = (0.5 + rnd() * 1.9) * ps * 0.5;
       const warm = rnd() > 0.45;
       const gsp = ctx.createRadialGradient(px, py, 0, px, py, rad);
-      gsp.addColorStop(0, warm ? `rgba(196,120,64,${0.06 + rnd() * 0.07})`
-                               : `rgba(38,24,14,${0.05 + rnd() * 0.08})`);
+      gsp.addColorStop(0, warm ? `rgba(226,229,235,${0.045 + rnd() * 0.05})`
+                               : `rgba(0,0,0,${0.06 + rnd() * 0.09})`);
       gsp.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = gsp;
       ctx.beginPath();
@@ -1048,8 +1053,8 @@ class Arena {
       const a1 = view.project(sgn * wallX, 0, nearZ), a2 = view.project(sgn * wallX, 0, farZ);
       const b1 = view.project(sgn * wallX * 0.72, 0, nearZ), b2 = view.project(sgn * wallX * 0.72, 0, farZ);
       const ag = ctx.createLinearGradient(a1[0], a1[1], b1[0], b1[1]);
-      ag.addColorStop(0, "rgba(10,6,3,.55)");
-      ag.addColorStop(1, "rgba(10,6,3,0)");
+      ag.addColorStop(0, "rgba(0,0,0,.62)");
+      ag.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = ag;
       ctx.beginPath();
       ctx.moveTo(a1[0], a1[1]); ctx.lineTo(a2[0], a2[1]); ctx.lineTo(b2[0], b2[1]); ctx.lineTo(b1[0], b1[1]);
@@ -1057,8 +1062,8 @@ class Arena {
     }
     const fc = view.project(0, 0, farZ);
     const fgd = ctx.createLinearGradient(0, fc[1] - H * 0.02, 0, fc[1] + H * 0.22);
-    fgd.addColorStop(0, "rgba(10,6,3,.5)");
-    fgd.addColorStop(1, "rgba(10,6,3,0)");
+    fgd.addColorStop(0, "rgba(0,0,0,.58)");
+    fgd.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = fgd;
     ctx.fillRect(0, fc[1] - H * 0.05, W, H * 0.3);
     ctx.restore();
@@ -1077,7 +1082,7 @@ class Arena {
     ctx.fillRect(0, 0, W, H);
     ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = 0.085;
-    ctx.strokeStyle = mixHex("#FFF6E2", "#FFD9A0", night);
+    ctx.strokeStyle = mixHex("#FFFFFF", "#C8CBD1", night);
     for (let i = 0; i < 9; i++){
       const zc = 2 + i * 2.6, r = pw * (0.5 + (i % 3) * 0.22);
       ctx.lineWidth = (1.4 + (i % 2)) * s;
@@ -1092,7 +1097,7 @@ class Arena {
     ctx.restore();
 
     /* survey grid */
-    const gridCol = mixHex("#B09071", "#6A5232", night);
+    const gridCol = mixHex("#6E7178", "#3E4046", night);
     for (let i = -4; i <= 4; i++){
       this.line(ctx, view, [(pw / 4) * i, 0, nearZ], [(pw / 4) * i, 0, farZ], gridCol, 1, 0.16);
     }
@@ -1104,11 +1109,11 @@ class Arena {
     ctx.save();
     ctx.globalAlpha = 0.16;
     this.quad(ctx, view, [[-pw, 0, nearZ], [pw, 0, nearZ], [pw, 0, farZ - 0.5], [-pw, 0, farZ - 0.5]],
-      mixHex("#D19A62", "#95601F", night));
+      mixHex("#43464D", "#2A2C31", night));
     ctx.restore();
 
     /* painted markings + stencilled yard mark */
-    const paint = mixHex("#F2EFE6", "#E8D8B4", night * 0.55);
+    const paint = mixHex("#F2F3F5", "#D8DADD", night * 0.55);
     this.line(ctx, view, [-pw, 0, nearZ], [-pw, 0, farZ], paint, 2.2 * s, 0.45);
     this.line(ctx, view, [pw, 0, nearZ], [pw, 0, farZ], paint, 2.2 * s, 0.45);
     this.line(ctx, view, [-pw, 0, 13], [pw, 0, 13], paint, 2 * s, 0.28);
@@ -1118,8 +1123,8 @@ class Arena {
     /* --- far structure: closes the top of the frame ----------------------- */
     const farWallH = 3.4;
     const fg = ctx.createLinearGradient(0, view.project(0, farWallH, farZ)[1], 0, farY);
-    fg.addColorStop(0, mixHex("#171B21", "#0A0806", night));
-    fg.addColorStop(1, mixHex("#2A3038", "#181109", night));
+    fg.addColorStop(0, mixHex("#0B0B0E", "#040405", night));
+    fg.addColorStop(1, mixHex("#22242A", "#101115", night));
     this.quad(ctx, view, [[-hw * 3, 0, farZ], [-hw * 3, farWallH, farZ],
                           [hw * 3, farWallH, farZ], [hw * 3, 0, farZ]], fg);
     /* service bays along the base of the far wall */
@@ -1127,7 +1132,7 @@ class Arena {
       const x = i * (pw / 2.6);
       this.quad(ctx, view, [[x - pw * 0.16, 0, farZ - 0.02], [x - pw * 0.16, 0.62, farZ - 0.02],
                             [x + pw * 0.16, 0.62, farZ - 0.02], [x + pw * 0.16, 0, farZ - 0.02]],
-                mixHex("#20252C", "#100B07", night));
+                mixHex("#141519", "#08080A", night));
     }
     /* hazard chevron rail across the gantry face */
     for (let i = -9; i <= 9; i++){
@@ -1136,19 +1141,19 @@ class Arena {
       ctx.globalAlpha = 0.5;
       this.quad(ctx, view, [[x, 0.72, farZ - 0.03], [x + pw * 0.08, 1.02, farZ - 0.03],
                             [x + pw * 0.16, 1.02, farZ - 0.03], [x + pw * 0.08, 0.72, farZ - 0.03]],
-                i % 2 ? mixHex("#F4D03F", "#B08F1C", night * 0.5) : mixHex("#22262B", "#0B0F16", night));
+                i % 2 ? mixHex("#B3161C", "#FF3A41", night) : mixHex("#141519", "#08080A", night));
       ctx.restore();
     }
     /* gantry beam + brand sign */
     this.quad(ctx, view, [[-hw * 3, 1.12, farZ - 0.05], [-hw * 3, 1.30, farZ - 0.05],
                           [hw * 3, 1.30, farZ - 0.05], [hw * 3, 1.12, farZ - 0.05]],
-              mixHex("#454C55", "#2A2015", night));
+              mixHex("#3A3C42", "#1C1D21", night));
     ctx.save();
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    if (!REDUCED){ ctx.shadowColor = PALETTE.hivis; ctx.shadowBlur = (8 + night * 22) * s; }
+    if (!REDUCED){ ctx.shadowColor = PALETTE.brand; ctx.shadowBlur = (8 + night * 22) * s; }
     /* on a narrow canvas the HUD owns this band, so the gantry stays unlettered */
     if (W < 660){ ctx.restore(); } else {
-    ctx.fillStyle = mixHex("#D8C264", "#F4D03F", night);
+    ctx.fillStyle = mixHex("#E8EAEE", "#F2F3F5", night);
     for (const [label, ox, size] of [["TERRAMECH", -pw * 0.62, 0.44], ["YARD 07", pw * 0.66, 0.36]]){
       const [gx, gy, gs] = view.project(ox, 1.60, farZ - 0.06);
       ctx.font = `700 ${size * gs}px "Chakra Petch", sans-serif`;
@@ -1162,16 +1167,20 @@ class Arena {
       for (let row = 0; row < 5; row++){
         const rx = wallX + 0.5 + row * 0.78;
         const y0 = CFG.WALL_H + row * 0.58;
-        const band = shade(row % 2 ? "#26332D" : "#1F2A25", lerp(1, 0.4, night));
-        this.quad(ctx, view, [[sgn * rx, y0, nearZ], [sgn * rx, y0 + 0.4, nearZ],
-                              [sgn * rx, y0 + 0.4, farZ], [sgn * rx, y0, farZ]], band);
-        /* seat ticks — enough texture to read as a crowd, not as noise */
-        const seat = mixHex("#37503F", "#1B2019", night);
-        for (let z = 0.5; z < farZ; z += 0.85){
-          const [px, py, ps] = view.project(sgn * rx, y0 + 0.34, z);
-          if (py < -30 || py > H + 30) continue;
-          ctx.fillStyle = seat;
-          ctx.fillRect(px - 0.24 * ps, py, 0.48 * ps, 0.26 * ps);
+        /* the riser the row sits on */
+        this.quad(ctx, view, [[sgn * rx, y0, nearZ], [sgn * rx, y0 + 0.52, nearZ],
+                              [sgn * rx, y0 + 0.52, farZ], [sgn * rx, y0, farZ]],
+                  shade(row % 2 ? "#191A1E" : "#121317", lerp(1, 0.45, night)));
+        /* individual seats: a lit top and a shaded face, so the tier has depth */
+        const top = shade("#4A4D55", lerp(1, 0.42, night));
+        const face = shade("#212328", lerp(1, 0.42, night));
+        for (let z = 0.6; z < farZ - 0.4; z += 0.78){
+          const y1 = y0 + 0.52, d = 0.26;
+          if (view.project(sgn * rx, y1, z)[1] < -40) continue;
+          this.quad(ctx, view, [[sgn * rx, y1, z - d], [sgn * (rx + 0.46), y1, z - d],
+                                [sgn * (rx + 0.46), y1, z + d], [sgn * rx, y1, z + d]], top);
+          this.quad(ctx, view, [[sgn * rx, y1, z - d], [sgn * rx, y1 + 0.3, z - d],
+                                [sgn * rx, y1 + 0.3, z + d], [sgn * rx, y1, z + d]], face);
         }
       }
     }
@@ -1179,29 +1188,22 @@ class Arena {
     /* --- side walls ------------------------------------------------------- */
     for (const sgn of [-1, 1]){
       const wg = ctx.createLinearGradient(0, view.project(0, CFG.WALL_H, 6)[1], 0, view.project(0, 0, 6)[1]);
-      wg.addColorStop(0, mixHex("#1D2229", "#0B0805", night));
-      wg.addColorStop(1, mixHex("#333B45", "#1E1610", night));
+      wg.addColorStop(0, mixHex("#0C0C0F", "#050506", night));
+      wg.addColorStop(1, mixHex("#2B2D33", "#141519", night));
       this.quad(ctx, view, [[sgn * wallX, 0, nearZ], [sgn * wallX, CFG.WALL_H, nearZ],
                             [sgn * wallX, CFG.WALL_H, farZ], [sgn * wallX, 0, farZ]], wg);
 
-      /* banner boards, one word per bay so the type recedes cleanly */
+      /* Signage is painted straight onto the wall — lettering, not billboards. */
       ctx.save();
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
       for (let bay = 0; bay < 5; bay++){
         const z = 4.2 + bay * 4.4;
         if (z > farZ - 1.5) break;
-        const [px, py, ps] = view.project(sgn * wallX, CFG.WALL_H * 0.45, z);
+        const [px, py, ps] = view.project(sgn * wallX, CFG.WALL_H * 0.5, z);
         if (ps > view.scaleAt(3)) continue;
-        /* a mounted board, then the type on it */
-        ctx.globalAlpha = 1;
-        this.quad(ctx, view, [[sgn * wallX, CFG.WALL_H * 0.24, z - 1.55],
-                              [sgn * wallX, CFG.WALL_H * 0.70, z - 1.55],
-                              [sgn * wallX, CFG.WALL_H * 0.70, z + 1.55],
-                              [sgn * wallX, CFG.WALL_H * 0.24, z + 1.55]],
-                  shade("#12171E", lerp(1, 0.5, night)), rgba(PALETTE.hivis, 0.16), 1);
-        ctx.globalAlpha = 0.5 + night * 0.25;
-        ctx.fillStyle = mixHex("#D3D9E0", "#C8B98E", night);
-        ctx.font = `700 ${0.46 * ps}px "Chakra Petch", sans-serif`;
+        ctx.globalAlpha = 0.26 + night * 0.1;
+        ctx.fillStyle = mixHex("#E6E8EC", "#B9BDC4", night);
+        ctx.font = `700 ${0.66 * ps}px "Chakra Petch", sans-serif`;
         ctx.save();
         ctx.translate(px, py);
         ctx.scale(0.42, 1);           // foreshortened across the wall's length
@@ -1211,11 +1213,11 @@ class Arena {
       ctx.restore();
 
       /* neon rails — the signature of the yard, brighter after dark */
-      const railGlow = 0.45 + night * 0.55;
+      const railGlow = 0.38 + night * 0.85;
       const rails = [
-        { y:CFG.WALL_H * 0.10, c:PALETTE.hivis, w:2.4 },
-        { y:CFG.WALL_H * 0.86, c:"#FFB33C",     w:2.0 },
-        { y:CFG.WALL_H * 0.99, c:PALETTE.hivis, w:1.4 },
+        { y:CFG.WALL_H * 0.10, c:PALETTE.brand, w:2.4 },
+        { y:CFG.WALL_H * 0.86, c:PALETTE.brand, w:2.0 },
+        { y:CFG.WALL_H * 0.99, c:"#FFFFFF",     w:1.2 },
       ];
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
@@ -1233,9 +1235,9 @@ class Arena {
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
       for (const sgn of [-1, 1]){
-        const [lx, ly] = view.project(sgn * wallX * 0.8, CFG.WALL_H + 2.2, 15);
+        const [lx, ly] = view.project(sgn * wallX * 0.86, CFG.WALL_H + 2.0, 13);
         const fgl = ctx.createRadialGradient(lx, ly, 0, lx, ly, H * 0.7);
-        fgl.addColorStop(0, `rgba(255,228,158,${0.13 * night})`);
+        fgl.addColorStop(0, `rgba(255,236,238,${0.15 * night})`);
         fgl.addColorStop(1, "rgba(0,0,0,0)");
         ctx.fillStyle = fgl;
         ctx.fillRect(0, 0, W, H);
@@ -1253,7 +1255,7 @@ class Arena {
       const lw = (pass ? 9 : 2.4) * s;
       const lz = CFG.Z_CATCH + CFG.BUCKET_D / 2;
       this.line(ctx, view, [-pw, 0.01, lz], [pw, 0.01, lz],
-        PALETTE.hivis, lw, (pass ? 0.12 : 0.6) + pulse * 0.25);
+        PALETTE.brand, lw, (pass ? 0.12 : 0.6) + pulse * 0.25);
     }
     ctx.restore();
   }
@@ -1263,21 +1265,22 @@ class Arena {
 /* Item catalogue. Each piece is a prism: sides / radius / length / axis.
    `r` is the catch radius used by the collision test. */
 const ITEMS = {
-  beam:   { kind:"material", value:100, weight:34, r:1.10, rest:0.42, color:"#F4D03F",
+  beam:   { kind:"material", value:100, weight:34, r:1.10, rest:0.42, color:"#D8232A",
             mesh: makePrism(4, 0.42, 2.30, "x", Math.PI / 4) },
-  pipe:   { kind:"material", value:75,  weight:26, r:0.95, rest:0.45, color:"#9AA3AB",
+  pipe:   { kind:"material", value:75,  weight:26, r:0.95, rest:0.45, color:"#9AA0A6",
             mesh: makePrism(12, 0.45, 1.90, "x") },
-  plate:  { kind:"material", value:160, weight:12, r:0.82, rest:0.12, color:"#FFE58A",
+  plate:  { kind:"material", value:160, weight:12, r:0.82, rest:0.12, color:"#ECEDEF",
             mesh: makePrism(6, 0.80, 0.22, "y") },
-  crate:  { kind:"material", value:60,  weight:18, r:0.72, rest:0.50, color:"#E0B22C",
+  crate:  { kind:"material", value:60,  weight:18, r:0.72, rest:0.50, color:"#A4171D",
             mesh: makePrism(4, 0.62, 1.00, "y", Math.PI / 4) },
-  drum:   { kind:"hazard",   value:0,   weight:0,  r:0.70, rest:0.60, color:"#E0483A",
-            mesh: makePrism(12, 0.50, 1.20, "y") },
-  rubble: { kind:"hazard",   value:0,   weight:0,  r:0.74, rest:0.36, color:"#C4402F",
-            mesh: makePrism(5, 0.66, 0.72, "y") },
-  magnet: { kind:"power",    value:0,   weight:0,  r:0.80, rest:0.72, color:"#5FD3E0", power:"magnet",
+  /* hazards wear warning stripes rather than a colour of their own */
+  drum:   { kind:"hazard",   value:0,   weight:0,  r:0.70, rest:0.60, color:"#131417",
+            stripe:"#EDEEF0", mesh: makePrism(12, 0.50, 1.20, "y") },
+  rubble: { kind:"hazard",   value:0,   weight:0,  r:0.74, rest:0.36, color:"#17181B",
+            stripe:"#D7D9DC", mesh: makePrism(5, 0.66, 0.72, "y") },
+  magnet: { kind:"power",    value:0,   weight:0,  r:0.80, rest:0.72, color:"#F2F3F5", power:"magnet",
             mesh: makePrism(6, 0.58, 0.62, "y") },
-  titan:  { kind:"power",    value:0,   weight:0,  r:0.80, rest:0.72, color:"#E9EDF0", power:"titanium",
+  titan:  { kind:"power",    value:0,   weight:0,  r:0.80, rest:0.72, color:"#F2F3F5", power:"titanium",
             mesh: makePrism(6, 0.58, 0.62, "y") },
 };
 
@@ -1337,8 +1340,8 @@ class FallingItem {
     ctx.translate(sx, sy);
     ctx.scale(1, (view.camH / (this.z + CFG.CAM_D)) * 1.1);
     const sg = ctx.createRadialGradient(0, 0, r * 0.18, 0, 0, r);
-    sg.addColorStop(0, `rgba(16,9,4,${a})`);
-    sg.addColorStop(1, "rgba(16,9,4,0)");
+    sg.addColorStop(0, `rgba(0,0,0,${a})`);
+    sg.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = sg;
     ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
     ctx.restore();
@@ -1348,8 +1351,8 @@ class FallingItem {
   drawMarker(ctx, view, s){
     const near = clamp(1 - (this.z - CFG.Z_CATCH) / 11, 0, 1);
     if (near <= 0.02) return;
-    const col = this.kind === "hazard" ? PALETTE.hazard
-              : this.kind === "power" ? PALETTE.coolant : PALETTE.hivis;
+    const col = this.kind === "hazard" ? PALETTE.paper
+              : this.kind === "power" ? PALETTE.paper : PALETTE.brand;
     const w = this.def.r * 1.1, d = 0.55;
     const pts = [[this.x - w, 0.02, CFG.Z_CATCH - d], [this.x + w, 0.02, CFG.Z_CATCH - d],
                  [this.x + w, 0.02, CFG.Z_CATCH + d], [this.x - w, 0.02, CFG.Z_CATCH + d]];
@@ -1387,10 +1390,12 @@ class FallingItem {
     drawMesh(ctx, view, this.def.mesh, [this.x, this.y, this.z], this.yaw, this.pitch, {
       world: this._world,
       color: this.def.color,
-      light: lerp(1, 0.86, night) + this.glow * 0.4,
+      /* warning stripes have to stay readable once the floods take over */
+      light: (this.kind === "hazard" ? lerp(1, 1.06, night) : lerp(1, 0.94, night)) + this.glow * 0.4,
       lift: emissive ? 0.10 : 0,
+      stripe: this.def.stripe,
       edge: 0.020,
-      edgeColor: emissive ? "#FFFFFF" : "#FFF6D8",
+      edgeColor: emissive ? "#FFFFFF" : this.kind === "hazard" ? "#FFFFFF" : "#FFE3E4",
     });
 
     /* power-ups carry their glyph as a camera-facing billboard */
@@ -1461,8 +1466,9 @@ class Bucket {
     const titan = game.power.titanium > 0;
     const lean = this.tilt * 0.35;
 
-    const body = titan ? "#7FE3EE" : "#F4D03F";
-    const edge = titan ? "#EAFBFF" : "#FFF2BE";
+    /* the rig wears the brand; under Titanium Frame it goes white-hot */
+    const body = titan ? "#E9EAEE" : PALETTE.brand;
+    const edge = titan ? "#FFFFFF" : "#FFD9DB";
     const P = (x, y, z) => view.project(x, y, z);
     const quad = (pts, fill, alpha = 1) => {
       ctx.globalAlpha = alpha;
@@ -1559,7 +1565,7 @@ class Bucket {
       const pulse = 0.6 + 0.4 * Math.sin(time * 6);
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
-      ctx.strokeStyle = PALETTE.coolant;
+      ctx.strokeStyle = PALETTE.paper;
       ctx.lineWidth = 1.6 * s;
       for (let ring = 1; ring <= 3; ring++){
         const R = ring * 1.6 * (0.94 + 0.06 * pulse);
@@ -1577,7 +1583,7 @@ class Bucket {
     if (titan){
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
-      ctx.strokeStyle = PALETTE.coolant;
+      ctx.strokeStyle = PALETTE.paper;
       ctx.globalAlpha = 0.28 + 0.16 * Math.sin(time * 9);
       ctx.lineWidth = 2 * s;
       ctx.beginPath();
@@ -1719,7 +1725,7 @@ class Game {
       it.z = CFG.Z_SPAWN + 0.4; it.h0 = 0.5; it.arc = 0.1;
       this.items.push(it);
     }
-    this.popups.add(this.W / 2, this.H * 0.24, "WALL INBOUND", PALETTE.hazard, 26 * this.s, 600);
+    this.popups.add(this.W / 2, this.H * 0.24, "WALL INBOUND", PALETTE.paper, 26 * this.s, 600);
     return 2.2;
   }
 
@@ -1742,7 +1748,7 @@ class Game {
   }
   magnetSpark(item){
     const [x, y, s] = this.screenOf(item);
-    this.fx.sparks(x, y, 1, PALETTE.coolant, 0.7, Math.atan2(0, this.bucket.x - item.x), 60 * (s / 200));
+    this.fx.sparks(x, y, 1, PALETTE.paper, 0.7, Math.atan2(0, this.bucket.x - item.x), 60 * (s / 200));
   }
 
   /* -------------------------------------------------------------- scoring */
@@ -1758,7 +1764,7 @@ class Game {
     this.comboTimer = CFG.COMBO_WINDOW;
     this.catchGlow = 1;
 
-    const col = item.type === "plate" ? "#FFE58A" : PALETTE.hivis;
+    const col = item.type === "plate" ? PALETTE.paper : PALETTE.brandLift;
     this.popups.add(sx, sy - 30 * this.s, `+${pts}`, col, 22 * this.s);
     this.fx.sparks(sx, sy, 16, col, Math.PI * 1.3, -Math.PI / 2, 340 * scale);
     this.fx.ring(sx, sy, col, 80 * scale, 3);
@@ -1769,8 +1775,8 @@ class Game {
 
     while (this.nextStreak < STREAKS.length && this.combo >= STREAKS[this.nextStreak].at){
       const st = STREAKS[this.nextStreak++];
-      this.popups.add(this.W / 2, this.H * 0.36, st.text, PALETTE.hivis, 46 * this.s);
-      this.fx.ring(this.W / 2, this.H * 0.36, PALETTE.hivis, 190 * this.s, 4);
+      this.popups.add(this.W / 2, this.H * 0.36, st.text, PALETTE.brand, 46 * this.s);
+      this.fx.ring(this.W / 2, this.H * 0.36, PALETTE.brand, 190 * this.s, 4);
       this.shake.kick(6);
       Audio_.bonus();
     }
@@ -1780,10 +1786,10 @@ class Game {
     const kind = item.def.power;
     this.power[kind] = CFG.POWER_TIME;
     const label = kind === "magnet" ? "MAGNETIC FIELD" : "TITANIUM FRAME";
-    this.popups.add(this.W / 2, this.H * 0.44, label, PALETTE.coolant, 38 * this.s);
-    this.popups.add(sx, sy - 26 * this.s, "ENGAGED", PALETTE.coolant, 18 * this.s);
-    this.fx.sparks(sx, sy, 28, PALETTE.coolant, TAU, 0, 360 * (sc / 220));
-    this.fx.ring(sx, sy, PALETTE.coolant, 160 * (sc / 220), 5);
+    this.popups.add(this.W / 2, this.H * 0.44, label, PALETTE.paper, 38 * this.s);
+    this.popups.add(sx, sy - 26 * this.s, "ENGAGED", PALETTE.paper, 18 * this.s);
+    this.fx.sparks(sx, sy, 28, PALETTE.paper, TAU, 0, 360 * (sc / 220));
+    this.fx.ring(sx, sy, PALETTE.paper, 160 * (sc / 220), 5);
     this.bucket.pop(0.8);
     this.shake.kick(5);
     Audio_.bonus();
@@ -1791,10 +1797,10 @@ class Game {
   smashHazard(item){
     const [sx, sy, sc] = this.screenOf(item);
     this.score += Math.round(40 * this.scoreMult);
-    this.popups.add(sx, sy - 24 * this.s, "SMASHED", PALETTE.coolant, 20 * this.s);
-    this.fx.debris(sx, sy, 18, PALETTE.hazard, sc / 220);
-    this.fx.ring(sx, sy, PALETTE.coolant, 120 * (sc / 220), 4);
-    this.groundRing(item.x, CFG.Z_CATCH, rgba(PALETTE.coolant, 0.9), 3.0, 0.55);
+    this.popups.add(sx, sy - 24 * this.s, "SMASHED", PALETTE.paper, 20 * this.s);
+    this.fx.debris(sx, sy, 18, PALETTE.paper, sc / 220);
+    this.fx.ring(sx, sy, PALETTE.paper, 120 * (sc / 220), 4);
+    this.groundRing(item.x, CFG.Z_CATCH, rgba(PALETTE.paper, 0.9), 3.0, 0.55);
     this.shake.kick(7);
     this.bucket.pop(0.5);
     Audio_.smash();
@@ -1805,11 +1811,11 @@ class Game {
     this.lives--;
     this.combo = 0; this.nextStreak = 0; this.comboTimer = 0;
     this.hitFlash = 1;
-    this.fx.debris(sx, sy, 26, PALETTE.hazard, scale);
-    this.fx.sparks(sx, sy, 20, "#FF8A6A", TAU, 0, 340 * scale);
-    this.fx.ring(sx, sy, PALETTE.hazard, 210 * scale, 6);
-    this.groundRing(item.x, CFG.Z_CATCH, rgba(PALETTE.hazard, 0.95), 4.2, 0.7);
-    this.popups.add(sx, sy - 30 * this.s, "-1 LIFE", PALETTE.hazard, 26 * this.s);
+    this.fx.debris(sx, sy, 26, PALETTE.paper, scale);
+    this.fx.sparks(sx, sy, 20, "#FF6A70", TAU, 0, 340 * scale);
+    this.fx.ring(sx, sy, PALETTE.paper, 210 * scale, 6);
+    this.groundRing(item.x, CFG.Z_CATCH, rgba(PALETTE.paper, 0.95), 4.2, 0.7);
+    this.popups.add(sx, sy - 30 * this.s, "-1 LIFE", PALETTE.paper, 26 * this.s);
     this.shake.kick(22);
     this.bucket.pop(0.9);
     Audio_.hit();
@@ -1819,8 +1825,8 @@ class Game {
     const [sx, sy, sc] = this.view.project(item.x, 0, CFG.Z_CATCH);
     if (this.combo >= 4) this.popups.add(sx, sy - 40 * this.s, "STREAK LOST", PALETTE.concrete, 18 * this.s);
     this.combo = 0; this.nextStreak = 0; this.comboTimer = 0;
-    this.fx.dust(sx, sy, "#A2977F", sc / 220);
-    this.groundRing(item.x, CFG.Z_CATCH, "rgba(190,160,120,.8)", 1.8, 0.5);
+    this.fx.dust(sx, sy, "#B9BDC4", sc / 220);
+    this.groundRing(item.x, CFG.Z_CATCH, "rgba(200,205,212,.8)", 1.8, 0.5);
     Audio_.miss();
   }
 
@@ -1828,7 +1834,7 @@ class Game {
   gameOver(){
     this.state = "over";
     const [bx, by, bs] = this.view.project(this.bucket.x, 0.4, CFG.Z_CATCH);
-    this.fx.debris(bx, by, 32, PALETTE.hivis, bs / 220);
+    this.fx.debris(bx, by, 32, PALETTE.brand, bs / 220);
     this.shake.kick(26);
     this.isRecord = this.score > 0 && this.score > this.best;
     if (this.isRecord){ this.best = this.score; store.set("tm_best", this.best); }
@@ -1873,7 +1879,7 @@ class Game {
     this.night = damp(this.night, clamp(Math.max(byCatch, byScore), 0, 1), 1.6, dt);
     if (!this.announcedNight && this.night > 0.6){
       this.announcedNight = true;
-      this.popups.add(this.W / 2, this.H * 0.3, "NIGHT SHIFT", PALETTE.coolant, 54 * this.s);
+      this.popups.add(this.W / 2, this.H * 0.3, "NIGHT SHIFT", PALETTE.paper, 54 * this.s);
       this.popups.add(this.W / 2, this.H * 0.3 + 44 * this.s, "DOUBLE PAY · FASTER THROWS", PALETTE.paper, 20 * this.s, 600);
       this.shake.kick(8);
       Audio_.phase();
@@ -1930,7 +1936,7 @@ class Game {
           this.missMaterial(it);
         } else if (it.kind === "hazard"){
           const [sx, sy, sc] = this.view.project(it.x, 0, CFG.Z_CATCH);
-          this.fx.dust(sx, sy, "#8C3A2E", sc / 220);
+          this.fx.dust(sx, sy, "#6E7178", sc / 220);
         }
         this.items.splice(i, 1);
       }
@@ -1979,7 +1985,7 @@ class Game {
 
     /* --- grade: night wash, damage vignette, corner falloff -------------- */
     if (this.night > 0.02){
-      ctx.fillStyle = `rgba(26,14,6,${this.night * 0.16})`;
+      ctx.fillStyle = `rgba(30,4,8,${this.night * 0.26})`;
       ctx.fillRect(0, 0, W, H);
     }
     const vig = ctx.createRadialGradient(W / 2, H * 0.55, H * 0.32, W / 2, H * 0.55, H * 0.95);
@@ -1989,8 +1995,8 @@ class Game {
 
     if (this.hitFlash > 0){
       const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.26, W / 2, H / 2, H * 0.8);
-      g.addColorStop(0, "rgba(224,72,58,0)");
-      g.addColorStop(1, `rgba(224,72,58,${0.5 * this.hitFlash})`);
+      g.addColorStop(0, "rgba(224,27,34,0)");
+      g.addColorStop(1, `rgba(224,27,34,${0.55 * this.hitFlash})`);
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     }
 
@@ -2015,8 +2021,8 @@ class Game {
       ctx.fillStyle = color; ctx.fillText(t, x, y);
     };
     const plate = (x, y, w, h) => {
-      ctx.fillStyle = "rgba(12,13,15,.55)";
-      ctx.strokeStyle = "rgba(244,208,63,.22)";
+      ctx.fillStyle = "rgba(6,6,8,.62)";
+      ctx.strokeStyle = "rgba(224,27,34,.30)";
       ctx.lineWidth = 1;
       rrect(ctx, x, y, w, h, 3 * s); ctx.fill(); ctx.stroke();
     };
@@ -2028,7 +2034,7 @@ class Game {
     };
     const lifeIcon = (bx, by, alive, r) => {
       ctx.globalAlpha = alive ? 1 : 0.22;
-      ctx.strokeStyle = alive ? PALETTE.hivis : PALETTE.concrete;
+      ctx.strokeStyle = alive ? PALETTE.brand : PALETTE.concrete;
       ctx.lineWidth = 2.2 * s;
       ctx.beginPath();
       ctx.moveTo(bx - r, by - r * 0.72);
@@ -2039,7 +2045,7 @@ class Game {
       ctx.globalAlpha = 1;
     };
 
-    const shiftColor = mixHex(PALETTE.hivis, PALETTE.coolant, this.night);
+    const shiftColor = mixHex(PALETTE.brand, PALETTE.paper, this.night);
     const scoreH = narrow ? 50 * s : 62 * s;
     const lifeR = 10 * s, lifeGap = 30 * s;
 
@@ -2048,7 +2054,7 @@ class Game {
     const scoreW = narrow ? Math.max(120 * s, W - pad * 2 - livesW - 8 * s) : 190 * s;
     plate(pad, pad, scoreW, scoreH);
     label("SALVAGE VALUE", pad + 12 * s, pad + 18 * s, 13 * s, "rgba(233,237,240,.55)");
-    num(Math.round(this.displayScore).toLocaleString(), pad + 12 * s, pad + scoreH - 12 * s, (narrow ? 24 : 30) * s, PALETTE.hivis);
+    num(Math.round(this.displayScore).toLocaleString(), pad + 12 * s, pad + scoreH - 12 * s, (narrow ? 24 : 30) * s, PALETTE.brand);
     label(`BEST ${this.best.toLocaleString()}`, pad + scoreW - 12 * s, pad + scoreH - 12 * s, 13 * s, "rgba(233,237,240,.4)", "right");
 
     const lx = W - pad - livesW;
@@ -2081,15 +2087,15 @@ class Game {
       plate(pad, y, cwid, h);
       const frac = clamp(this.comboTimer / CFG.COMBO_WINDOW, 0, 1);
       label(`${this.combo} STREAK`, pad + 12 * s, y + 19 * s, 14 * s, "rgba(233,237,240,.7)");
-      num(`${this.multiplier}×`, pad + cwid - 12 * s, y + 22 * s, 22 * s, PALETTE.hivis, "right");
-      bar(pad + 12 * s, y + 27 * s, cwid - 24 * s, 4 * s, frac, frac > 0.35 ? PALETTE.hivis : PALETTE.hazard);
+      num(`${this.multiplier}×`, pad + cwid - 12 * s, y + 22 * s, 22 * s, PALETTE.brand, "right");
+      bar(pad + 12 * s, y + 27 * s, cwid - 24 * s, 4 * s, frac, frac > 0.35 ? PALETTE.brand : PALETTE.paper);
     }
 
     /* --- power-up pills (bottom-left) ------------------------------------ */
     let py = H - pad - 30 * s;
     const pill = (name, left, color) => {
       const w = Math.min(204 * s, W - pad * 2), h = 26 * s, frac = left / CFG.POWER_TIME;
-      ctx.fillStyle = "rgba(12,13,15,.6)";
+      ctx.fillStyle = "rgba(6,6,8,.68)";
       ctx.strokeStyle = color; ctx.lineWidth = 1.5;
       rrect(ctx, pad, py, w, h, h / 2); ctx.fill(); ctx.stroke();
       ctx.save();
@@ -2101,7 +2107,7 @@ class Game {
       num(left.toFixed(1) + "s", pad + w - 12 * s, py + 18 * s, 13.5 * s, color, "right");
       py -= h + 6 * s;
     };
-    if (this.power.magnet > 0)   pill("MAGNETIC FIELD", this.power.magnet, PALETTE.coolant);
+    if (this.power.magnet > 0)   pill("MAGNETIC FIELD", this.power.magnet, PALETTE.paper);
     if (this.power.titanium > 0) pill("TITANIUM FRAME", this.power.titanium, PALETTE.paper);
   }
 }
@@ -2115,13 +2121,13 @@ function rankFor(score){
 
 const RANK_MARKS = [
   /* Rookie — single chevron */
-  '<svg viewBox="0 0 44 44" fill="none" stroke="#F4D03F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 27l14-11 14 11"/></svg>',
+  '<svg viewBox="0 0 44 44" fill="none" stroke="#E01B22" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 27l14-11 14 11"/></svg>',
   /* Site Foreman — double chevron */
-  '<svg viewBox="0 0 44 44" fill="none" stroke="#F4D03F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 22L22 11l14 11M8 33l14-11 14 11"/></svg>',
+  '<svg viewBox="0 0 44 44" fill="none" stroke="#E01B22" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 22L22 11l14 11M8 33l14-11 14 11"/></svg>',
   /* Chief Engineer — gear */
-  '<svg viewBox="0 0 44 44" fill="none" stroke="#F4D03F" stroke-width="3" stroke-linejoin="round"><path d="M22 8l4 3h5l1 5 4 3-2 5 2 5-4 3-1 5h-5l-4 3-4-3h-5l-1-5-4-3 2-5-2-5 4-3 1-5h5z"/><circle cx="22" cy="24" r="5"/></svg>',
+  '<svg viewBox="0 0 44 44" fill="none" stroke="#E01B22" stroke-width="3" stroke-linejoin="round"><path d="M22 8l4 3h5l1 5 4 3-2 5 2 5-4 3-1 5h-5l-4 3-4-3h-5l-1-5-4-3 2-5-2-5 4-3 1-5h5z"/><circle cx="22" cy="24" r="5"/></svg>',
   /* TerraMech Master — bucket + crown of teeth */
-  '<svg viewBox="0 0 44 44" fill="none" stroke="#F4D03F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 16h26l-4 14a10 10 0 01-18 0z"/><path d="M12 16l2-5 4 5 4-6 4 6 4-5 2 5"/></svg>',
+  '<svg viewBox="0 0 44 44" fill="none" stroke="#E01B22" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 16h26l-4 14a10 10 0 01-18 0z"/><path d="M12 16l2-5 4 5 4-6 4 6 4-5 2 5"/></svg>',
 ];
 
 const Shell = {
