@@ -1,10 +1,13 @@
 name: Deploy site
 
-# The site is one static file, so there is nothing to build. It is split into
-# two jobs on purpose: a job that declares `environment: github-pages` cannot
-# start until that environment exists, and the environment only exists once
-# Pages is switched on. So the first job turns Pages on (and uploads the site),
-# and only then does the deploy job — the one bound to the environment — run.
+# The site is one static file, so there is nothing to build.
+#
+# This repository currently serves Pages from the legacy branch source
+# (`main`, root), so the live site is whatever sits at the root of `main` and
+# this workflow is not what publishes it. It is kept because it is the shape
+# that works if the Pages source is ever switched to "GitHub Actions": the two
+# jobs are split because a job declaring `environment: github-pages` cannot
+# start until that environment exists, which only happens under that source.
 
 on:
   push:
