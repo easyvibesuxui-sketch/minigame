@@ -770,9 +770,10 @@ const CFG = {
      view solves for the camera that puts the catch line and the far gantry on
      exactly these screen fractions — so the yard composes the same way at any
      aspect ratio, and the horizon sits far above the frame. */
-  CAM_D: 26,              // metres between camera and catch line
-  NEAR_Y: 0.90,           // catch line, as a fraction of canvas height
-  FAR_Y: 0.13,            // far gantry, same
+  CAM_D: 22,              // metres between camera and catch line
+  NEAR_Y: 0.95,           // catch line, as a fraction of canvas height
+  FAR_Y: 0.32,            // far gantry, same — the lower this sits, the
+                          // higher the camera has to be to see the deck
   /* --- yard --- */
   Z_FAR: 24,              // far gantry
   Z_SPAWN: 23,            // where material enters
@@ -1157,9 +1158,12 @@ function makePrism(sides, radius, length, axis = "y", twist = 0){
       const a = (i / sides) * TAU + twist;
       const c = Math.cos(a) * radius, s = Math.sin(a) * radius;
       const d = cap ? h : -h;
+      /* Build the ring along Y, then rotate it as a rigid body. Permuting the
+         coordinates instead mirrors the solid, which flips every face normal
+         inward — the renderer then culls the lit faces and paints the inside. */
       if (axis === "y")      verts.push([c, d, s]);
-      else if (axis === "x") verts.push([d, c, s]);
-      else                   verts.push([c, s, d]);
+      else if (axis === "x") verts.push([d, -c, s]);   // -90 degrees about Z
+      else                   verts.push([c, -s, d]);   // +90 degrees about X
     }
   }
   for (let i = 0; i < sides; i++){
@@ -1512,7 +1516,7 @@ class Arena {
     this.groundText(ctx, view, "LOADING YARD 07", 14.5, pw * 0.10, paint, 0.11);
 
     /* --- far structure: closes the top of the frame ----------------------- */
-    const farWallH = 3.4;
+    const farWallH = 6.2;
     const fg = ctx.createLinearGradient(0, view.project(0, farWallH, farZ)[1], 0, farY);
     fg.addColorStop(0, mixHex("#0B0B0E", "#040405", night));
     fg.addColorStop(1, mixHex("#22242A", "#101115", night));
@@ -1656,24 +1660,32 @@ class Arena {
 /* ------------------------------------------------------------ 7. THE CARGO */
 /* Item catalogue. Each piece is a prism: sides / radius / length / axis.
    `r` is the catch radius used by the collision test. */
+/* Each piece is told apart three ways at once: its colour sits on a distinct
+   step of the brand ramp, its silhouette is a different solid, and hazards
+   alone wear warning stripes. Low facet counts keep the volumes reading as
+   solids rather than as detail. */
 const ITEMS = {
-  beam:   { kind:"material", value:100, weight:34, r:1.10, rest:0.42, color:"#D8232A",
-            mesh: makePrism(4, 0.42, 2.30, "x", Math.PI / 4) },
-  pipe:   { kind:"material", value:75,  weight:26, r:0.95, rest:0.45, color:"#9AA0A6",
-            mesh: makePrism(12, 0.45, 1.90, "x") },
-  plate:  { kind:"material", value:160, weight:12, r:0.82, rest:0.12, color:"#ECEDEF",
-            mesh: makePrism(6, 0.80, 0.22, "y") },
-  crate:  { kind:"material", value:60,  weight:18, r:0.72, rest:0.50, color:"#A4171D",
-            mesh: makePrism(4, 0.62, 1.00, "y", Math.PI / 4) },
-  /* hazards wear warning stripes rather than a colour of their own */
-  drum:   { kind:"hazard",   value:0,   weight:0,  r:0.70, rest:0.60, color:"#131417",
-            stripe:"#EDEEF0", mesh: makePrism(12, 0.50, 1.20, "y") },
-  rubble: { kind:"hazard",   value:0,   weight:0,  r:0.74, rest:0.36, color:"#17181B",
-            stripe:"#D7D9DC", mesh: makePrism(5, 0.66, 0.72, "y") },
-  magnet: { kind:"power",    value:0,   weight:0,  r:0.80, rest:0.72, color:"#F2F3F5", power:"magnet",
-            mesh: makePrism(6, 0.58, 0.62, "y") },
-  titan:  { kind:"power",    value:0,   weight:0,  r:0.80, rest:0.72, color:"#F2F3F5", power:"titanium",
-            mesh: makePrism(6, 0.58, 0.62, "y") },
+  /* girder — the signature piece, full brand red */
+  beam:   { kind:"material", value:100, weight:34, r:1.15, rest:0.52, color:"#E01B22",
+            mesh: makePrism(4, 0.52, 2.30, "x", Math.PI / 4) },
+  /* pipe — bare steel, mid grey, an octagonal tube */
+  pipe:   { kind:"material", value:75,  weight:26, r:1.00, rest:0.50, color:"#8E959C",
+            mesh: makePrism(8, 0.50, 1.90, "x") },
+  /* plate — the rare one, brightest thing on the deck, a thick hex ingot */
+  plate:  { kind:"material", value:160, weight:12, r:0.90, rest:0.26, color:"#D7DBE0",
+            mesh: makePrism(6, 0.86, 0.52, "y") },
+  /* crate — deep oxide red, a plain cube, clearly darker than the girder */
+  crate:  { kind:"material", value:60,  weight:18, r:0.78, rest:0.60, color:"#7A1218",
+            mesh: makePrism(4, 0.66, 1.20, "y", Math.PI / 4) },
+  /* hazards: black bodies, warning stripes, no brand colour anywhere */
+  drum:   { kind:"hazard",   value:0,   weight:0,  r:0.76, rest:0.72, color:"#1C1E24",
+            stripe:"#F2F3F5", mesh: makePrism(8, 0.54, 1.44, "y") },
+  rubble: { kind:"hazard",   value:0,   weight:0,  r:0.80, rest:0.46, color:"#212329",
+            stripe:"#B9BDC4", mesh: makePrism(5, 0.72, 0.92, "y") },
+  magnet: { kind:"power",    value:0,   weight:0,  r:0.84, rest:0.80, color:"#FFFFFF", power:"magnet",
+            mesh: makePrism(6, 0.60, 0.70, "y") },
+  titan:  { kind:"power",    value:0,   weight:0,  r:0.84, rest:0.80, color:"#FFFFFF", power:"titanium",
+            mesh: makePrism(6, 0.60, 0.70, "y") },
 };
 
 class FallingItem {
@@ -1684,8 +1696,8 @@ class FallingItem {
     this.z = CFG.Z_SPAWN;
     this.v = CFG.THROW_V * speedMul;
     this.speedMul = speedMul;
-    this.h0 = rand(0.22, 0.55);       // height it leaves the gantry at
-    this.arc = rand(0.08, 0.26);      // how much loft the throw carries
+    this.h0 = rand(0.45, 1.00);       // height it leaves the gantry at
+    this.arc = rand(0.18, 0.45);      // how much loft the throw carries
     this.y = this.h0;
     this.yaw = rand(0, TAU);
     this.pitch = rand(0, TAU);
@@ -1724,7 +1736,7 @@ class FallingItem {
     drawCastShadow(ctx, view, this._world, 1 - night * 0.2);
 
     const [sx, sy, sc] = view.project(this.x, 0, this.z);
-    const lift = clamp((this.y - this.def.rest) / 1.1, 0, 1);
+    const lift = clamp((this.y - this.def.rest) / 1.6, 0, 1);
     const r = this.def.r * sc * (0.62 + lift * 0.5);
     const a = (0.42 - lift * 0.26) * (1 - night * 0.22);
     if (a <= 0.01) return;
@@ -1786,6 +1798,7 @@ class FallingItem {
       light: (this.kind === "hazard" ? lerp(1, 1.06, night) : lerp(1, 0.94, night)) + this.glow * 0.4,
       lift: emissive ? 0.10 : 0,
       stripe: this.def.stripe,
+      edgeAll: this.kind === "hazard",   // warning stripes have to survive the dark deck
       edge: 0.020,
       edgeColor: emissive ? "#FFFFFF" : this.kind === "hazard" ? "#FFFFFF" : "#FFE3E4",
     });
@@ -2156,7 +2169,8 @@ class Game {
     this.comboTimer = CFG.COMBO_WINDOW;
     this.catchGlow = 1;
 
-    const col = item.type === "plate" ? PALETTE.paper : PALETTE.brandLift;
+    const col = item.type === "plate" ? PALETTE.paper
+              : item.type === "pipe" ? PALETTE.steel : PALETTE.brandLift;
     this.popups.add(sx, sy - 30 * this.s, `+${pts}`, col, 22 * this.s);
     this.fx.sparks(sx, sy, 16, col, Math.PI * 1.3, -Math.PI / 2, 340 * scale);
     this.fx.ring(sx, sy, col, 80 * scale, 3);
