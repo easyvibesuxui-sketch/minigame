@@ -1194,6 +1194,26 @@ function hull(pts){
   return lo.concat(hi);
 }
 
+/* A closed path through `pts` with every corner rounded. Used on a solid's
+   projected silhouette, which is what actually reads as a moulded edge: the
+   faces inside stay flat and correctly shaded, only the outline softens. */
+function roundedPath(ctx, pts, r){
+  const n = pts.length;
+  if (n < 3) return;
+  ctx.beginPath();
+  for (let i = 0; i < n; i++){
+    const p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n];
+    const d1 = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1;
+    const d2 = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) || 1;
+    const rr = Math.min(r, d1 / 2, d2 / 2);
+    const ax = p1[0] + (p0[0] - p1[0]) * rr / d1, ay = p1[1] + (p0[1] - p1[1]) * rr / d1;
+    const bx = p1[0] + (p2[0] - p1[0]) * rr / d2, by = p1[1] + (p2[1] - p1[1]) * rr / d2;
+    i ? ctx.lineTo(ax, ay) : ctx.moveTo(ax, ay);
+    ctx.quadraticCurveTo(p1[0], p1[1], bx, by);
+  }
+  ctx.closePath();
+}
+
 /* Shared vertex transform: local mesh space -> world. */
 function meshWorld(mesh, pos, yaw, pitch){
   const cy = Math.cos(yaw), sy = Math.sin(yaw);
@@ -1267,6 +1287,21 @@ function drawMesh(ctx, view, mesh, pos, yaw, pitch, opt){
 
   const lw = clamp(opt.edge * view.scaleAt(pos[2]), 0.7, 3.0);
   const haze = clamp((pos[2] - 6) / 34, 0, 1) * (opt.haze ?? 0.16);
+
+  /* The whole solid is clipped to its own rounded outline, so the corners come
+     out moulded instead of machined while the internal shading stays true. */
+  const sil = hull(screen.map(p => [p[0], p[1]]));
+  let sx0 = Infinity, sy0 = Infinity, sx1 = -Infinity, sy1 = -Infinity;
+  for (const q of sil){
+    if (q[0] < sx0) sx0 = q[0]; if (q[0] > sx1) sx1 = q[0];
+    if (q[1] < sy0) sy0 = q[1]; if (q[1] > sy1) sy1 = q[1];
+  }
+  const round = clamp(Math.min(sx1 - sx0, sy1 - sy0) * (opt.round ?? 0.13), 2, 16);
+
+  ctx.save();
+  roundedPath(ctx, sil, round);
+  ctx.clip();
+
   for (const d of drawList){
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     ctx.beginPath();
@@ -1281,20 +1316,42 @@ function drawMesh(ctx, view, mesh, pos, yaw, pitch, opt){
     const base = d.k * opt.light;
     const tone = (opt.stripe && d.idx >= 0 && d.idx % 2 === 1) ? opt.stripe : opt.color;
     const gr = ctx.createLinearGradient(x0, y0, x1, y1);
-    gr.addColorStop(0, hazed(shadeRGB(tone, base * 1.14, opt.lift || 0), haze));
-    gr.addColorStop(1, hazed(shadeRGB(tone, base * 0.74, opt.lift || 0), haze));
+    gr.addColorStop(0, hazed(shadeRGB(tone, base * 1.18, opt.lift || 0), haze));
+    gr.addColorStop(1, hazed(shadeRGB(tone, base * 0.72, opt.lift || 0), haze));
     ctx.fillStyle = gr;
     ctx.fill();
-    /* every face gets a hairline of its own colour first, so no deck shows
-       through the seams, then a dark contour for definition */
+    /* a hairline of the face's own colour closes the seams between faces */
     ctx.lineJoin = "round";
     ctx.strokeStyle = gr;
-    ctx.lineWidth = 1.1;
+    ctx.lineWidth = 1.2;
     ctx.stroke();
-    ctx.strokeStyle = d.up > 0.55 ? rgba(opt.edgeColor || "#FFFFFF", 0.30) : "rgba(10,7,4,.42)";
-    ctx.lineWidth = lw;
-    ctx.stroke();
+    if (opt.edgeAll || d.up > 0.55){
+      ctx.strokeStyle = rgba(opt.edgeColor || "#FFFFFF", opt.edgeAll ? 0.4 : 0.22);
+      ctx.lineWidth = lw * 0.8;
+      ctx.stroke();
+    }
   }
+
+  /* sheen: a soft pool of light on the upper shoulder, the thing that makes a
+     moulded surface look moulded */
+  if (!REDUCED && opt.gloss !== false){
+    const gx = (sx0 + sx1) / 2 - (sx1 - sx0) * 0.14;
+    const gy = sy0 + (sy1 - sy0) * 0.26;
+    const gr2 = ctx.createRadialGradient(gx, gy, 0, gx, gy, Math.max(sx1 - sx0, sy1 - sy0) * 0.62);
+    gr2.addColorStop(0, `rgba(255,255,255,${0.13 * (opt.gloss ?? 1)})`);
+    gr2.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.globalCompositeOperation = "lighter";
+    ctx.fillStyle = gr2;
+    ctx.fillRect(sx0, sy0, sx1 - sx0, sy1 - sy0);
+  }
+  ctx.restore();
+
+  /* and the moulded outline itself */
+  roundedPath(ctx, sil, round);
+  ctx.strokeStyle = rgba(opt.edgeColor || "#FFFFFF", opt.edgeAll ? 0.42 : 0.2);
+  ctx.lineWidth = lw;
+  ctx.lineJoin = "round";
+  ctx.stroke();
 }
 
 /* ----------------------------------------------------------------- 6. ARENA */
@@ -1875,11 +1932,18 @@ class Bucket {
     const body = titan ? "#E9EAEE" : PALETTE.brand;
     const edge = titan ? "#FFFFFF" : "#FFD9DB";
     const P = (x, y, z) => view.project(x, y, z);
-    const quad = (pts, fill, alpha = 1) => {
+    /* `round` softens a panel's corners the same way the cargo is moulded, so
+       the rig does not read as the one hard-edged object on the deck. */
+    const quad = (pts, fill, alpha = 1, round = 0) => {
       ctx.globalAlpha = alpha;
-      ctx.beginPath();
-      pts.forEach((p, i) => { const q = P(p[0], p[1], p[2]); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); });
-      ctx.closePath();
+      const proj = pts.map(p => { const q = P(p[0], p[1], p[2]); return [q[0], q[1]]; });
+      if (round > 0){
+        roundedPath(ctx, proj, round);
+      } else {
+        ctx.beginPath();
+        proj.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]));
+        ctx.closePath();
+      }
       ctx.fillStyle = fill; ctx.fill();
       ctx.globalAlpha = 1;
     };
@@ -1909,7 +1973,7 @@ class Bucket {
 
     /* interior floor and the far wall seen from inside */
     quad([[this.x - hw, 0.03, zN], [this.x + hw, 0.03, zN],
-          [this.x + hw, 0.03, zF], [this.x - hw, 0.03, zF]], shade(body, 0.26), 0.95);
+          [this.x + hw, 0.03, zF], [this.x - hw, 0.03, zF]], shade(body, 0.26), 0.95, 6 * s);
     quad([[this.x - hw + lean, h, zF], [this.x + hw + lean, h, zF],
           [this.x + hw, 0.03, zF], [this.x - hw, 0.03, zF]], shade(body, 0.46));
     for (const sgn of [-1, 1]){
@@ -1923,9 +1987,9 @@ class Bucket {
     ng.addColorStop(0, shade(body, 1.0, this.flash * 0.22));
     ng.addColorStop(1, shade(body, 0.58, this.flash * 0.1));
     quad([[this.x - hw, 0.16, zN], [this.x - hw + lean, h, zN],
-          [this.x + hw + lean, h, zN], [this.x + hw, 0.16, zN]], ng);
+          [this.x + hw + lean, h, zN], [this.x + hw, 0.16, zN]], ng, 1, 7 * s);
     quad([[this.x - hw, 0.03, zN], [this.x - hw, 0.16, zN],
-          [this.x + hw, 0.16, zN], [this.x + hw, 0.03, zN]], shade(edge, 0.92));
+          [this.x + hw, 0.16, zN], [this.x + hw, 0.03, zN]], shade(edge, 0.92), 1, 4 * s);
 
     /* the rim: a flat ring on top of the walls, brighter than the shell */
     ctx.save();
