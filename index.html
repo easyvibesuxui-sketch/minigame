@@ -549,8 +549,8 @@ kbd{
             <div><b>Payload</b><span>Beams, pipes, plates. Points.</span></div>
           </li>
           <li>
-            <svg viewBox="0 0 32 32" fill="none" stroke="#F2F3F5" stroke-width="2" stroke-linejoin="round"><path d="M9 8h14l2 16H7z"/><path d="M11 13h10M10 18h12"/></svg>
-            <div><b>Hazard</b><span>Striped drums. Catch one, lose a life.</span></div>
+            <svg viewBox="0 0 32 32" fill="none" stroke="#FFC61A" stroke-width="2" stroke-linejoin="round"><path d="M9 8h14l2 16H7z"/><path d="M11 13h10M10 18h12"/></svg>
+            <div><b>Hazard</b><span>Yellow banded drums. Catch one, lose a life.</span></div>
           </li>
           <li>
             <svg viewBox="0 0 32 32" fill="none" stroke="#F2F3F5" stroke-width="2" stroke-linecap="round"><path d="M10 24V15a6 6 0 0112 0v9"/><path d="M10 24h4v-9M22 24h-4v-9"/></svg>
@@ -1797,11 +1797,13 @@ const ITEMS = {
   /* crate — deep oxide red, a plain cube, clearly darker than the girder */
   crate:  { kind:"material", value:60,  weight:18, r:0.78, rest:0.60, color:"#5E0F14",
             mesh: makePrism(4, 0.66, 1.20, "y", Math.PI / 4) },
-  /* hazards: black bodies, warning stripes, no brand colour anywhere */
-  drum:   { kind:"hazard",   value:0,   weight:0,  r:0.76, rest:0.72, color:"#101318",
-            stripe:"#FFFFFF", mesh: makePrism(8, 0.54, 1.44, "y") },
-  rubble: { kind:"hazard",   value:0,   weight:0,  r:0.80, rest:0.46, color:"#3A3E46",
-            stripe:"#8A9099", mesh: makePrism(5, 0.72, 0.92, "y") },
+  /* hazards wear plant warning livery — yellow bodies banded in black. It is
+     the one colour nothing else on the deck uses, so the piece that costs a
+     life is spotted by hue, and by its banding if the hue is unavailable. */
+  drum:   { kind:"hazard",   value:0,   weight:0,  r:0.76, rest:0.72, color:"#FFC61A",
+            stripe:"#141518", mesh: makePrism(8, 0.54, 1.44, "y") },
+  rubble: { kind:"hazard",   value:0,   weight:0,  r:0.80, rest:0.46, color:"#F0B41C",
+            stripe:"#2B2519", mesh: makePrism(5, 0.72, 0.92, "y") },
   magnet: { kind:"power",    value:0,   weight:0,  r:0.84, rest:0.80, color:"#FFFFFF", power:"magnet",
             mesh: makePrism(6, 0.60, 0.70, "y") },
   titan:  { kind:"power",    value:0,   weight:0,  r:0.84, rest:0.80, color:"#FFFFFF", power:"titanium",
@@ -1920,7 +1922,7 @@ class FallingItem {
       stripe: this.def.stripe,
       edgeAll: this.kind === "hazard",   // warning stripes have to survive the dark deck
       edge: 0.020,
-      edgeColor: emissive ? "#FFFFFF" : this.kind === "hazard" ? "#FFFFFF" : "#FFE3E4",
+      edgeColor: emissive ? "#FFFFFF" : this.kind === "hazard" ? PALETTE.warnLift : "#FFE3E4",
     });
 
     /* power-ups carry their glyph as a camera-facing billboard */
@@ -2329,10 +2331,10 @@ class Game {
   smashHazard(item){
     const [sx, sy, sc] = this.screenOf(item);
     this.score += Math.round(40 * this.scoreMult);
-    this.popups.add(sx, sy - 24 * this.s, "SMASHED", PALETTE.paper, 20 * this.s);
-    this.fx.debris(sx, sy, 18, PALETTE.paper, sc / 220);
-    this.fx.ring(sx, sy, PALETTE.paper, 120 * (sc / 220), 4);
-    this.groundRing(item.x, CFG.Z_CATCH, rgba(PALETTE.paper, 0.9), 3.0, 0.55);
+    this.popups.add(sx, sy - 24 * this.s, "SMASHED", PALETTE.warn, 20 * this.s);
+    this.fx.debris(sx, sy, 18, PALETTE.warn, sc / 220);
+    this.fx.ring(sx, sy, PALETTE.warn, 120 * (sc / 220), 4);
+    this.groundRing(item.x, CFG.Z_CATCH, rgba(PALETTE.warn, 0.9), 3.0, 0.55);
     this.shake.kick(7);
     this.bucket.pop(0.5);
     Audio_.smash();
@@ -2343,7 +2345,7 @@ class Game {
     this.lives--;
     this.combo = 0; this.nextStreak = 0; this.comboTimer = 0;
     this.hitFlash = 1;
-    this.fx.debris(sx, sy, 26, PALETTE.paper, scale);
+    this.fx.debris(sx, sy, 26, PALETTE.warn, scale);
     this.fx.sparks(sx, sy, 20, PALETTE.warnLift, TAU, 0, 340 * scale);
     this.fx.ring(sx, sy, PALETTE.warn, 210 * scale, 6);
     this.groundRing(item.x, CFG.Z_CATCH, rgba(PALETTE.warn, 0.95), 4.2, 0.7);
