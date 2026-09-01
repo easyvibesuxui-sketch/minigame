@@ -794,6 +794,10 @@ const PALETTE = {
   brand:"#E01B22", brandLift:"#FF4A4F", brandDeep:"#8E1015",
   ink:"#0A0A0C", graphite:"#26272B",
   paper:"#F2F3F5", steel:"#9AA0A6", concrete:"#71737A",
+  /* Penalties read yellow-on-a-block, gains read red-on-nothing: hue alone
+     is no good to a red-green colour-blind player, so the two carry
+     different shapes as well as different colours. */
+  warn:"#FFC61A", warnLift:"#FFE07A", warnDeep:"#6E5200",
 };
 
 const STREAKS = [
@@ -1002,9 +1006,13 @@ class Particles {
 class Popups {
   constructor(){ this.list = []; }
   clear(){ this.list.length = 0; }
-  add(x, y, text, color, size = 22, weight = 700, glow = null){
+  /* `block` stamps the label into a solid extruded slab instead of setting it
+     as bare type. It is the shape half of the redundant coding: a penalty is
+     a yellow block, a gain is red type, and the two stay apart for a player
+     who cannot separate the hues. */
+  add(x, y, text, color, size = 22, weight = 700, glow = null, block = false){
     this.list.push({ x: x + rand(-10, 10), y: y + rand(-10, 10), text, color, size, weight,
-      glow, life:1.05, age:0, drift:rand(-16, 16) });
+      glow, block, life:1.05, age:0, drift:rand(-16, 16) });
   }
   update(dt){
     for (let i = this.list.length - 1; i >= 0; i--){
@@ -1024,15 +1032,39 @@ class Popups {
       ctx.translate(p.x + p.drift * t, p.y - rise);
       ctx.scale(pop, pop);
       ctx.font = `${p.weight} ${p.size}px "Chakra Petch", ui-sans-serif, sans-serif`;
-      ctx.lineWidth = 5; ctx.lineJoin = "round";
-      ctx.strokeStyle = "rgba(8,10,12,.9)";
-      ctx.strokeText(p.text, 0, 0);
-      if (p.glow && !REDUCED){ ctx.shadowColor = p.glow; ctx.shadowBlur = 18; }
-      ctx.fillStyle = p.color;
-      ctx.fillText(p.text, 0, 0);
-      ctx.shadowBlur = 0;
+      if (p.block) this.block(ctx, p);
+      else {
+        ctx.lineWidth = 5; ctx.lineJoin = "round";
+        ctx.strokeStyle = "rgba(8,10,12,.9)";
+        ctx.strokeText(p.text, 0, 0);
+        if (p.glow && !REDUCED){ ctx.shadowColor = p.glow; ctx.shadowBlur = 18; }
+        ctx.fillStyle = p.color;
+        ctx.fillText(p.text, 0, 0);
+        ctx.shadowBlur = 0;
+      }
       ctx.restore();
     }
+  }
+  /* A slab seen slightly from the left: a dark right cheek and a dark under
+     edge give it thickness, and the face carries the label in ink. */
+  block(ctx, p){
+    const tw = ctx.measureText(p.text).width;
+    const w = tw + p.size * 0.86, h = p.size * 1.34;
+    const d = p.size * 0.20, r = p.size * 0.26;
+    const x = -w / 2, y = -h / 2;
+    if (p.glow && !REDUCED){ ctx.shadowColor = p.glow; ctx.shadowBlur = 20; }
+    ctx.fillStyle = shade(p.color, 0.34);
+    rrect(ctx, x + d, y + d, w, h, r); ctx.fill();
+    ctx.shadowBlur = 0;
+    const g = ctx.createLinearGradient(0, y, 0, y + h);
+    g.addColorStop(0, shade(p.color, 1.0, 0.30));
+    g.addColorStop(1, shade(p.color, 0.80));
+    ctx.fillStyle = g;
+    rrect(ctx, x, y, w, h, r); ctx.fill();
+    ctx.strokeStyle = "rgba(8,10,12,.55)"; ctx.lineWidth = Math.max(1, p.size * 0.05);
+    rrect(ctx, x, y, w, h, r); ctx.stroke();
+    ctx.fillStyle = "#0B0C0E";
+    ctx.fillText(p.text, 0, p.size * 0.02);
   }
 }
 
@@ -1191,15 +1223,22 @@ function hull(pts){
 /* A closed path through `pts` with every corner rounded. Used on a solid's
    projected silhouette, which is what actually reads as a moulded edge: the
    faces inside stay flat and correctly shaded, only the outline softens. */
-function roundedPath(ctx, pts, r){
+/* A closed path with filleted corners. `r` is the radius a square corner
+   gets; shallower corners get proportionally less, so a box comes out
+   moulded while a many-sided prism keeps its barrel instead of collapsing
+   into a capsule. */
+function roundedPath(ctx, pts, r, sub = false){
   const n = pts.length;
   if (n < 3) return;
-  ctx.beginPath();
+  if (!sub) ctx.beginPath();
   for (let i = 0; i < n; i++){
     const p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n];
     const d1 = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1;
     const d2 = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) || 1;
-    const rr = Math.min(r, d1 / 2, d2 / 2);
+    /* how far the outline actually turns here, 0 = straight on, 1 = square */
+    const c = ((p1[0] - p0[0]) * (p2[0] - p1[0]) + (p1[1] - p0[1]) * (p2[1] - p1[1])) / (d1 * d2);
+    const turn = clamp(Math.acos(clamp(c, -1, 1)) / (Math.PI / 2), 0, 1);
+    const rr = Math.min(r * (0.25 + 0.75 * turn), d1 / 2, d2 / 2);
     const ax = p1[0] + (p0[0] - p1[0]) * rr / d1, ay = p1[1] + (p0[1] - p1[1]) * rr / d1;
     const bx = p1[0] + (p2[0] - p1[0]) * rr / d2, by = p1[1] + (p2[1] - p1[1]) * rr / d2;
     i ? ctx.lineTo(ax, ay) : ctx.moveTo(ax, ay);
@@ -1238,13 +1277,15 @@ function drawCastShadow(ctx, view, world, strength = 1){
   cx /= h.length; cy2 /= h.length;
   ctx.save();
   /* penumbra first, then the core — cheaper and steadier than a blur filter */
+  let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+  for (const q of h){
+    if (q[0] < bx0) bx0 = q[0]; if (q[0] > bx1) bx1 = q[0];
+    if (q[1] < by0) by0 = q[1]; if (q[1] > by1) by1 = q[1];
+  }
+  /* the shadow is cast by a filleted solid, so its corners are filleted too */
+  const r = clamp(Math.min(bx1 - bx0, by1 - by0) * 0.22, 1.5, 14);
   for (const [grow, alpha] of [[1.26, 0.10], [1.11, 0.12], [1.0, 0.20]]){
-    ctx.beginPath();
-    h.forEach((q, i) => {
-      const x = cx + (q[0] - cx) * grow, y = cy2 + (q[1] - cy2) * grow;
-      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
-    });
-    ctx.closePath();
+    roundedPath(ctx, h.map(q => [cx + (q[0] - cx) * grow, cy2 + (q[1] - cy2) * grow]), r * grow);
     ctx.fillStyle = `rgba(0,0,0,${alpha * strength})`;
     ctx.fill();
   }
@@ -1290,22 +1331,30 @@ function drawMesh(ctx, view, mesh, pos, yaw, pitch, opt){
     if (q[0] < sx0) sx0 = q[0]; if (q[0] > sx1) sx1 = q[0];
     if (q[1] < sy0) sy0 = q[1]; if (q[1] > sy1) sy1 = q[1];
   }
-  const round = clamp(Math.min(sx1 - sx0, sy1 - sy0) * (opt.round ?? 0.13), 2, 16);
+  const span = Math.min(sx1 - sx0, sy1 - sy0);
+  const round = clamp(span * (opt.round ?? 0.24), 2, 26);
+  /* the creases between faces get the same treatment as the outline, at a
+     smaller radius — a moulded solid has no knife edges anywhere */
+  const crease = clamp(span * 0.17, 2, 14);
 
   ctx.save();
   roundedPath(ctx, sil, round);
   ctx.clip();
 
+  /* a body tone under everything, so a filleted crease opens onto the solid
+     itself rather than onto the yard behind it */
+  ctx.fillStyle = hazed(shadeRGB(opt.color, 0.66 * opt.light, opt.lift || 0), haze);
+  ctx.fill();
+
   for (const d of drawList){
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    ctx.beginPath();
-    d.f.forEach((i, k) => {
+    const poly = d.f.map(i => {
       const p = screen[i];
       if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0];
       if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1];
-      k ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]);
+      return [p[0], p[1]];
     });
-    ctx.closePath();
+    roundedPath(ctx, poly, crease);
 
     const base = d.k * opt.light;
     const tone = (opt.stripe && d.idx >= 0 && d.idx % 2 === 1) ? opt.stripe : opt.color;
@@ -1989,10 +2038,10 @@ class Bucket {
     quad([[this.x - hw, 0.03, zN], [this.x + hw, 0.03, zN],
           [this.x + hw, 0.03, zF], [this.x - hw, 0.03, zF]], shade(body, 0.26), 0.95, 6 * s);
     quad([[this.x - hw + lean, h, zF], [this.x + hw + lean, h, zF],
-          [this.x + hw, 0.03, zF], [this.x - hw, 0.03, zF]], shade(body, 0.46));
+          [this.x + hw, 0.03, zF], [this.x - hw, 0.03, zF]], shade(body, 0.46), 1, 6 * s);
     for (const sgn of [-1, 1]){
       quad([[this.x + sgn * hw, 0.03, zN], [this.x + sgn * hw + lean, h, zN],
-            [this.x + sgn * hw + lean, h, zF], [this.x + sgn * hw, 0.03, zF]], shell);
+            [this.x + sgn * hw + lean, h, zF], [this.x + sgn * hw, 0.03, zF]], shell, 1, 6 * s);
     }
 
     /* near face, graded down its height, with the skid band under it */
@@ -2007,15 +2056,16 @@ class Bucket {
 
     /* the rim: a flat ring on top of the walls, brighter than the shell */
     ctx.save();
+    const ring = pts => pts.map(p => { const q = P(p[0], p[1], p[2]); return [q[0], q[1]]; });
+    const outer = ring([[this.x - hw + lean, h, zN], [this.x + hw + lean, h, zN],
+                        [this.x + hw + lean, h, zF], [this.x - hw + lean, h, zF]]);
+    const inner = ring([[this.x - hw + hw * inset + lean, h, zN + 0.16],
+                        [this.x + hw - hw * inset + lean, h, zN + 0.16],
+                        [this.x + hw - hw * inset + lean, h, zF - 0.16],
+                        [this.x - hw + hw * inset + lean, h, zF - 0.16]].reverse());
     ctx.beginPath();
-    [[this.x - hw + lean, h, zN], [this.x + hw + lean, h, zN],
-     [this.x + hw + lean, h, zF], [this.x - hw + lean, h, zF]]
-      .forEach((p, i) => { const q = P(p[0], p[1], p[2]); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); });
-    ctx.closePath();
-    [[this.x - hw + hw * inset + lean, h, zN + 0.16], [this.x + hw - hw * inset + lean, h, zN + 0.16],
-     [this.x + hw - hw * inset + lean, h, zF - 0.16], [this.x - hw + hw * inset + lean, h, zF - 0.16]]
-      .reverse().forEach((p, i) => { const q = P(p[0], p[1], p[2]); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); });
-    ctx.closePath();
+    roundedPath(ctx, outer, 7 * s, true);
+    roundedPath(ctx, inner, 5 * s, true);
     ctx.fillStyle = shade(edge, 0.96);
     ctx.fill("evenodd");
     ctx.restore();
@@ -2025,11 +2075,10 @@ class Bucket {
     ctx.strokeStyle = shade(body, 0.22);
     ctx.lineWidth = Math.max(1.1, 1.6 * s);
     ctx.lineJoin = "round";
-    ctx.beginPath();
-    [[this.x - hw, 0.03, zN], [this.x - hw + lean, h, zN],
-     [this.x + hw + lean, h, zN], [this.x + hw, 0.03, zN]]
-      .forEach((p, i) => { const q = P(p[0], p[1], p[2]); i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]); });
-    ctx.closePath(); ctx.stroke();
+    roundedPath(ctx, [[this.x - hw, 0.03, zN], [this.x - hw + lean, h, zN],
+                      [this.x + hw + lean, h, zN], [this.x + hw, 0.03, zN]]
+      .map(p => { const q = P(p[0], p[1], p[2]); return [q[0], q[1]]; }), 7 * s);
+    ctx.stroke();
 
     ctx.strokeStyle = edge;
     ctx.lineWidth = Math.max(1.6, 2.2 * s);
@@ -2208,7 +2257,7 @@ class Game {
       it.z = CFG.Z_SPAWN + 0.4; it.h0 = 0.5; it.arc = 0.1;
       this.items.push(it);
     }
-    this.popups.add(this.W / 2, this.H * 0.24, "WALL INBOUND", "#FFFFFF", 26 * this.s, 700, PALETTE.brand);
+    this.popups.add(this.W / 2, this.H * 0.24, "WALL INBOUND", PALETTE.warn, 26 * this.s, 700, PALETTE.warn);
     return 2.2;
   }
 
@@ -2295,10 +2344,10 @@ class Game {
     this.combo = 0; this.nextStreak = 0; this.comboTimer = 0;
     this.hitFlash = 1;
     this.fx.debris(sx, sy, 26, PALETTE.paper, scale);
-    this.fx.sparks(sx, sy, 20, "#FF6A70", TAU, 0, 340 * scale);
-    this.fx.ring(sx, sy, PALETTE.paper, 210 * scale, 6);
-    this.groundRing(item.x, CFG.Z_CATCH, rgba(PALETTE.paper, 0.95), 4.2, 0.7);
-    this.popups.add(sx, sy - 30 * this.s, "-1 LIFE", "#FFFFFF", 32 * this.s, 700, PALETTE.brand);
+    this.fx.sparks(sx, sy, 20, PALETTE.warnLift, TAU, 0, 340 * scale);
+    this.fx.ring(sx, sy, PALETTE.warn, 210 * scale, 6);
+    this.groundRing(item.x, CFG.Z_CATCH, rgba(PALETTE.warn, 0.95), 4.2, 0.7);
+    this.popups.add(sx, sy - 30 * this.s, "-1 LIFE", PALETTE.warn, 30 * this.s, 700, PALETTE.warn, true);
     this.shake.kick(22);
     this.bucket.pop(0.9);
     Audio_.hit();
