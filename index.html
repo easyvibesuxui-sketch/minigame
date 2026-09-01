@@ -1002,9 +1002,9 @@ class Particles {
 class Popups {
   constructor(){ this.list = []; }
   clear(){ this.list.length = 0; }
-  add(x, y, text, color, size = 22, weight = 700){
+  add(x, y, text, color, size = 22, weight = 700, glow = null){
     this.list.push({ x: x + rand(-10, 10), y: y + rand(-10, 10), text, color, size, weight,
-      life:1.05, age:0, drift:rand(-16, 16) });
+      glow, life:1.05, age:0, drift:rand(-16, 16) });
   }
   update(dt){
     for (let i = this.list.length - 1; i >= 0; i--){
@@ -1027,8 +1027,10 @@ class Popups {
       ctx.lineWidth = 5; ctx.lineJoin = "round";
       ctx.strokeStyle = "rgba(8,10,12,.9)";
       ctx.strokeText(p.text, 0, 0);
+      if (p.glow && !REDUCED){ ctx.shadowColor = p.glow; ctx.shadowBlur = 18; }
       ctx.fillStyle = p.color;
       ctx.fillText(p.text, 0, 0);
+      ctx.shadowBlur = 0;
       ctx.restore();
     }
   }
@@ -1735,22 +1737,22 @@ class Arena {
    solids rather than as detail. */
 const ITEMS = {
   /* girder — the signature piece, full brand red */
-  beam:   { kind:"material", value:100, weight:34, r:1.15, rest:0.52, color:"#E01B22",
+  beam:   { kind:"material", value:100, weight:34, r:1.15, rest:0.52, color:"#F02A32",
             mesh: makePrism(4, 0.52, 2.30, "x", Math.PI / 4) },
   /* pipe — bare steel, mid grey, an octagonal tube */
-  pipe:   { kind:"material", value:75,  weight:26, r:1.00, rest:0.50, color:"#8E959C",
+  pipe:   { kind:"material", value:75,  weight:26, r:1.00, rest:0.50, color:"#79838F",
             mesh: makePrism(8, 0.50, 1.90, "x") },
   /* plate — the rare one, brightest thing on the deck, a thick hex ingot */
-  plate:  { kind:"material", value:160, weight:12, r:0.90, rest:0.26, color:"#D7DBE0",
+  plate:  { kind:"material", value:160, weight:12, r:0.90, rest:0.26, color:"#EFE9DD",
             mesh: makePrism(6, 0.86, 0.52, "y") },
   /* crate — deep oxide red, a plain cube, clearly darker than the girder */
-  crate:  { kind:"material", value:60,  weight:18, r:0.78, rest:0.60, color:"#7A1218",
+  crate:  { kind:"material", value:60,  weight:18, r:0.78, rest:0.60, color:"#5E0F14",
             mesh: makePrism(4, 0.66, 1.20, "y", Math.PI / 4) },
   /* hazards: black bodies, warning stripes, no brand colour anywhere */
-  drum:   { kind:"hazard",   value:0,   weight:0,  r:0.76, rest:0.72, color:"#1C1E24",
-            stripe:"#F2F3F5", mesh: makePrism(8, 0.54, 1.44, "y") },
-  rubble: { kind:"hazard",   value:0,   weight:0,  r:0.80, rest:0.46, color:"#212329",
-            stripe:"#B9BDC4", mesh: makePrism(5, 0.72, 0.92, "y") },
+  drum:   { kind:"hazard",   value:0,   weight:0,  r:0.76, rest:0.72, color:"#101318",
+            stripe:"#FFFFFF", mesh: makePrism(8, 0.54, 1.44, "y") },
+  rubble: { kind:"hazard",   value:0,   weight:0,  r:0.80, rest:0.46, color:"#3A3E46",
+            stripe:"#8A9099", mesh: makePrism(5, 0.72, 0.92, "y") },
   magnet: { kind:"power",    value:0,   weight:0,  r:0.84, rest:0.80, color:"#FFFFFF", power:"magnet",
             mesh: makePrism(6, 0.60, 0.70, "y") },
   titan:  { kind:"power",    value:0,   weight:0,  r:0.84, rest:0.80, color:"#FFFFFF", power:"titanium",
@@ -2206,7 +2208,7 @@ class Game {
       it.z = CFG.Z_SPAWN + 0.4; it.h0 = 0.5; it.arc = 0.1;
       this.items.push(it);
     }
-    this.popups.add(this.W / 2, this.H * 0.24, "WALL INBOUND", PALETTE.paper, 26 * this.s, 600);
+    this.popups.add(this.W / 2, this.H * 0.24, "WALL INBOUND", "#FFFFFF", 26 * this.s, 700, PALETTE.brand);
     return 2.2;
   }
 
@@ -2245,8 +2247,7 @@ class Game {
     this.comboTimer = CFG.COMBO_WINDOW;
     this.catchGlow = 1;
 
-    const col = item.type === "plate" ? PALETTE.paper
-              : item.type === "pipe" ? PALETTE.steel : PALETTE.brandLift;
+    const col = "#FF5A5F";     // every gain reads as payload
     this.popups.add(sx, sy - 30 * this.s, `+${pts}`, col, 22 * this.s);
     this.fx.sparks(sx, sy, 16, col, Math.PI * 1.3, -Math.PI / 2, 340 * scale);
     this.fx.ring(sx, sy, col, 80 * scale, 3);
@@ -2257,7 +2258,7 @@ class Game {
 
     while (this.nextStreak < STREAKS.length && this.combo >= STREAKS[this.nextStreak].at){
       const st = STREAKS[this.nextStreak++];
-      this.popups.add(this.W / 2, this.H * 0.36, st.text, PALETTE.brand, 46 * this.s);
+      this.popups.add(this.W / 2, this.H * 0.36, st.text, "#FF5A5F", 46 * this.s, 700, PALETTE.brand);
       this.fx.ring(this.W / 2, this.H * 0.36, PALETTE.brand, 190 * this.s, 4);
       this.shake.kick(6);
       Audio_.bonus();
@@ -2268,7 +2269,7 @@ class Game {
     const kind = item.def.power;
     this.power[kind] = CFG.POWER_TIME;
     const label = kind === "magnet" ? "MAGNETIC FIELD" : "TITANIUM FRAME";
-    this.popups.add(this.W / 2, this.H * 0.44, label, PALETTE.paper, 38 * this.s);
+    this.popups.add(this.W / 2, this.H * 0.44, label, "#FFFFFF", 38 * this.s, 700, "#FFFFFF");
     this.popups.add(sx, sy - 26 * this.s, "ENGAGED", PALETTE.paper, 18 * this.s);
     this.fx.sparks(sx, sy, 28, PALETTE.paper, TAU, 0, 360 * (sc / 220));
     this.fx.ring(sx, sy, PALETTE.paper, 160 * (sc / 220), 5);
@@ -2297,7 +2298,7 @@ class Game {
     this.fx.sparks(sx, sy, 20, "#FF6A70", TAU, 0, 340 * scale);
     this.fx.ring(sx, sy, PALETTE.paper, 210 * scale, 6);
     this.groundRing(item.x, CFG.Z_CATCH, rgba(PALETTE.paper, 0.95), 4.2, 0.7);
-    this.popups.add(sx, sy - 30 * this.s, "-1 LIFE", PALETTE.paper, 26 * this.s);
+    this.popups.add(sx, sy - 30 * this.s, "-1 LIFE", "#FFFFFF", 32 * this.s, 700, PALETTE.brand);
     this.shake.kick(22);
     this.bucket.pop(0.9);
     Audio_.hit();
@@ -2361,7 +2362,7 @@ class Game {
     this.night = damp(this.night, clamp(Math.max(byCatch, byScore), 0, 1), 1.6, dt);
     if (!this.announcedNight && this.night > 0.6){
       this.announcedNight = true;
-      this.popups.add(this.W / 2, this.H * 0.3, "NIGHT SHIFT", PALETTE.paper, 54 * this.s);
+      this.popups.add(this.W / 2, this.H * 0.3, "NIGHT SHIFT", "#FFFFFF", 54 * this.s, 700, PALETTE.brand);
       this.popups.add(this.W / 2, this.H * 0.3 + 44 * this.s, "DOUBLE PAY · FASTER THROWS", PALETTE.paper, 20 * this.s, 600);
       this.shake.kick(8);
       Audio_.phase();
