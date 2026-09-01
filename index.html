@@ -2564,17 +2564,36 @@ class Game {
       ctx.fillStyle = color;
       rrect(ctx, x, y, w * clamp(frac, 0, 1), h, h / 2); ctx.fill();
     };
+    /* A plate still on the rig is a solid red shield; a spent one is a hollow
+       yellow shield struck through. Filled-vs-hollow and the strike carry the
+       state on their own, so the count survives a player who cannot separate
+       the two hues. */
     const lifeIcon = (bx, by, alive, r) => {
-      ctx.globalAlpha = alive ? 1 : 0.22;
-      ctx.strokeStyle = alive ? PALETTE.brand : PALETTE.concrete;
+      const shield = () => {
+        ctx.beginPath();
+        ctx.moveTo(bx - r, by - r * 0.72);
+        ctx.lineTo(bx + r, by - r * 0.72);
+        ctx.lineTo(bx + r * 0.72, by + r * 0.55);
+        ctx.quadraticCurveTo(bx, by + r * 1.18, bx - r * 0.72, by + r * 0.55);
+        ctx.closePath();
+      };
       ctx.lineWidth = 2.2 * s;
-      ctx.beginPath();
-      ctx.moveTo(bx - r, by - r * 0.72);
-      ctx.lineTo(bx + r, by - r * 0.72);
-      ctx.lineTo(bx + r * 0.72, by + r * 0.55);
-      ctx.quadraticCurveTo(bx, by + r * 1.18, bx - r * 0.72, by + r * 0.55);
-      ctx.closePath(); ctx.stroke();
-      ctx.globalAlpha = 1;
+      ctx.lineJoin = "round";
+      if (alive){
+        shield();
+        ctx.fillStyle = PALETTE.brand; ctx.fill();
+        ctx.strokeStyle = PALETTE.brandLift; ctx.stroke();
+      } else {
+        ctx.globalAlpha = 0.85;
+        shield();
+        ctx.fillStyle = rgba(PALETTE.warn, 0.14); ctx.fill();
+        ctx.strokeStyle = PALETTE.warn; ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(bx - r * 0.78, by + r * 0.62);
+        ctx.lineTo(bx + r * 0.78, by - r * 0.62);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
     };
 
     const shiftColor = mixHex(PALETTE.brand, PALETTE.paper, this.night);
