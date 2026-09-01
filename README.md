@@ -42,6 +42,15 @@ and hold the line into Night Shift, where the yard pays double.
 | Phases | Morning → Dusk → Night, driven by material salvaged or score, whichever leads |
 | Post | Threshold-and-blur bloom refreshed on alternate frames, with a frame-budget watchdog that drops it on slow devices |
 
+## Assets
+
+The TM-7 elevation in the machine section is a generated flat-vector
+illustration, cropped to the machine, remapped so its background is exactly the
+page's black, quantised to a 48-colour palette and inlined as a data URI —
+external image hosts are blocked by the Artifact CSP, so the page carries it.
+`tm7-source.png` is the untouched render it came from; `tm7.png` is the
+processed asset.
+
 ## Design system
 
 Red, black, and the black-to-white ramp between them. Payload is brand red, the
