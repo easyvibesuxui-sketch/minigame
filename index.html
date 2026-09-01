@@ -1399,6 +1399,33 @@ class Arena {
     return c;
   }
 
+  /* Signage painted on a side wall. The wall is a vertical plane at a fixed x,
+     so a point on it projects as
+         sx = W/2 + X·u ,  sy = horizon + (camH − y)·u ,  u = f/(z+D)
+     Moving one metre along the wall therefore shifts the screen point by
+     (X, camH)·(−u²/f) — up and toward the vanishing point — while moving one
+     metre up the wall shifts it by (0, −u). Feeding those two vectors in as
+     the text's basis puts the lettering in the plane of the wall: it shears
+     and shrinks with the wall instead of floating in front of it, which is
+     what a flat horizontal scale was doing. */
+  wallText(ctx, view, sgn, wallX, z, yMid, text, sizeM, color, alpha){
+    const X = sgn * wallX;
+    const u = view.f / (z + CFG.CAM_D);
+    const k = (u * u) / view.f;                 // screen shift per metre of z
+    let ax = -X * k, ay = -view.camH * k;       // direction of +z on screen
+    if (sgn > 0){ ax = -ax; ay = -ay; }         // right wall reads toward camera
+    const [px, py] = view.project(X, yMid, z);
+    const FS = 100, q = sizeM / FS;             // metres per font unit
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = color;
+    ctx.font = `700 ${FS}px "Chakra Petch", sans-serif`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.transform(ax * q, ay * q, 0, u * q, px, py);
+    ctx.fillText(text, 0, 0);
+    ctx.restore();
+  }
+
   /* Flat-on-the-deck text: horizontal scale from the projection, vertical
      squashed by the ground's foreshortening at that depth. */
   groundText(ctx, view, text, z, size, color, alpha){
@@ -1638,24 +1665,17 @@ class Arena {
       this.quad(ctx, view, [[sgn * wallX, 0, nearZ], [sgn * wallX, CFG.WALL_H, nearZ],
                             [sgn * wallX, CFG.WALL_H, farZ], [sgn * wallX, 0, farZ]], wg);
 
-      /* Signage is painted straight onto the wall — lettering, not billboards. */
-      ctx.save();
-      ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      for (let bay = 0; bay < 5; bay++){
-        const z = 4.2 + bay * 4.4;
-        if (z > farZ - 1.5) break;
-        const [px, py, ps] = view.project(sgn * wallX, CFG.WALL_H * 0.5, z);
-        if (ps > view.scaleAt(3)) continue;
-        ctx.globalAlpha = 0.26 + night * 0.1;
-        ctx.fillStyle = mixHex("#E6E8EC", "#B9BDC4", night);
-        ctx.font = `700 ${0.66 * ps}px "Chakra Petch", sans-serif`;
-        ctx.save();
-        ctx.translate(px, py);
-        ctx.scale(0.42, 1);           // foreshortened across the wall's length
-        ctx.fillText("TERRAMECH", 0, 0);
-        ctx.restore();
+      /* Signage is painted straight onto the wall — lettering, not billboards,
+         and now lying in the wall's own plane. */
+      /* The word is roughly five metres long on the wall, so the bays are
+         spaced past that: any closer and consecutive repeats run into each
+         other, which is what a fixed bay count did. */
+      for (let bay = 0; bay < 3; bay++){
+        const z = 6.5 + bay * 8.2;
+        if (z > farZ - 2) break;
+        this.wallText(ctx, view, sgn, wallX, z, CFG.WALL_H * 0.52, "TERRAMECH",
+          CFG.WALL_H * 0.40, mixHex("#C9CDD4", "#9AA1AC", night), 0.26 + night * 0.12);
       }
-      ctx.restore();
 
       /* neon rails — the signature of the yard, brighter after dark */
       const railGlow = 0.38 + night * 0.85;
